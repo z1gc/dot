@@ -1,0 +1,133 @@
+#!/usr/bin/env python3
+
+# MOIS <> STOW
+
+import argparse
+import os
+import shutil
+from dataclasses import dataclass
+from configparser import ConfigParser
+import logging
+import socket
+from enum import Enum
+from typing import List, Dict
+
+from trait import nongit
+
+
+WORKING_DIR = os.path.dirname(os.path.realpath(__file__))
+PACKAGE_DIR = os.path.join(WORKING_DIR, "stow")
+MACHINE_DIR = os.path.join(WORKING_DIR, "machine")
+SOURCE_DIR = os.path.join(WORKING_DIR, "fragment")
+
+
+def source_directory(path: str) -> str:
+    return os.path.join(SOURCE_DIR, path)
+
+
+@dataclass
+class Package:
+    name: str
+    specs: List[ConfigParser]
+    sources: List[str]
+    target: str
+
+
+@dataclass
+class MoisMeta:
+    machine: str = socket.gethostname()
+    packages: List[Package] = []
+
+    run_nongit: bool = False
+    nongits: List[ConfigParser] = []
+
+
+@dataclass
+class FileStatus:
+    class Status(Enum):
+        IDENTICAL = 0
+        DIFFER = 1
+        ONLY_LEFT = 2
+        ONLY_RIGHT = 3
+
+    left: str
+    right: str
+    status: Status
+
+
+def load_machine(machine: str, meta: MoisMeta) -> bool:
+    # Read machine spec first:
+    config = ConfigParser()
+    config.read(os.path.join(MACHINE_DIR, machine))
+
+    # For inherit, we read them recursively:
+    for inherit in config._sections.get("inherit", dict()).values():
+        if not load_machine(inherit, meta):
+            return False
+
+    # Parse packages, we should include the base package, e.g. fish should includes fish.x as well:
+    requirements = set(config._sections["package"].values())
+    for workdir, _, files in os.walk(PACKAGE_DIR):
+        for package in files:
+            pkgconfig = ConfigParser()
+            pkgconfig.read(os.path.join(workdir, package))
+
+            if pkgconfig.get("package", "type") == "nongit":
+                meta.nongits.append(pkgconfig)
+                continue
+
+            comp = package.split(".")
+            if len(comp) == 1 and package in requirements:
+                
+
+    # Push packages:
+    for package in config._sections["package"].values():
+        if package not in packages:
+            continue
+
+        # Read sources from the packages:
+        specs = packages[package]
+        for spec in specs:
+            pkgconfig = ConfigParser()
+            pkgconfig.read(spec)
+
+            if pkgconfig.get("package", "type") not in {"copy"}:
+                continue
+
+            source = pkgconfig.get("package", "source")
+            source = source_directory(source)
+            target = pkgconfig.get("package", "target")
+
+            # Fetch the source tree:
+            sources = []
+            for workdir, dirs, files in os.walk(source):
+                if len(dirs) == 0:
+                    sources += files
+
+        meta.packages.append(Package(package, packages))
+
+    pass
+
+
+def run_nongit(config: ConfigParser) -> bool:
+    assert config.get("package", "type") == "nongit"
+
+    source = config.get("package", "source")
+    target = config.get("package", "target")
+    target = source_directory(target)
+    includes = [v for _, v in config._sections["include"].items()]
+
+    meta = nongit.NongitMeta(
+        source,
+        config.get("package", "branch"),
+        config.get("package", "rev", fallback=None),
+        includes,
+    )
+
+    logging.info("Running nongit for %s...", target)
+    rev = nongit.update(target, meta)
+    if rev is None:
+        return False
+
+    config.set("package", "rev", rev)
+    return True
