@@ -5,12 +5,13 @@
 import argparse
 import os
 import shutil
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from configparser import ConfigParser
 import logging
 import socket
 from enum import Enum
-from typing import List, Dict
+from typing import List, Dict, DefaultDict
+from collections import defaultdict
 
 from trait import nongit
 
@@ -25,34 +26,34 @@ def source_directory(path: str) -> str:
     return os.path.join(SOURCE_DIR, path)
 
 
-@dataclass
-class Package:
-    name: str
-    specs: List[ConfigParser]
-    sources: List[str]
-    target: str
-
-
-@dataclass
-class MoisMeta:
-    machine: str = socket.gethostname()
-    packages: List[Package] = []
-
-    run_nongit: bool = False
-    nongits: List[ConfigParser] = []
+def target_directory(path: str) -> str:
+    return os.path.expanduser(path)
 
 
 @dataclass
 class FileStatus:
     class Status(Enum):
+        UNKNOWN = -1
         IDENTICAL = 0
         DIFFER = 1
         ONLY_LEFT = 2
         ONLY_RIGHT = 3
 
-    left: str
-    right: str
+    source: str
+    target: str
     status: Status
+
+
+@dataclass
+class MoisMeta:
+    machine: str = socket.gethostname()
+    specs: DefaultDict[str, List[ConfigParser]] = field(
+        default_factory=lambda: defaultdict(list)
+    )
+    packages: DefaultDict[str, List[FileStatus]] = field(
+        default_factory=lambda: defaultdict(list)
+    )
+    run_nongit: bool = False
 
 
 def load_machine(machine: str, meta: MoisMeta) -> bool:
@@ -65,48 +66,53 @@ def load_machine(machine: str, meta: MoisMeta) -> bool:
         if not load_machine(inherit, meta):
             return False
 
-    # Parse packages, we should include the base package, e.g. fish should includes fish.x as well:
-    requirements = set(config._sections["package"].values())
-    for workdir, _, files in os.walk(PACKAGE_DIR):
-        for package in files:
-            pkgconfig = ConfigParser()
-            pkgconfig.read(os.path.join(workdir, package))
+    # Fetch all specifications, including the prefixes, stores to meta for speedups:
+    if len(meta.specs) == 0:
+        for workdir, _, files in os.walk(PACKAGE_DIR):
+            for package in files:
+                comp = package.split(".")
+                assert len(comp) == 1 or len(comp) == 2
 
-            if pkgconfig.get("package", "type") == "nongit":
-                meta.nongits.append(pkgconfig)
-                continue
+                spec = os.path.join(workdir, package)
+                pkgconfig = ConfigParser()
+                pkgconfig.read(spec)
 
-            comp = package.split(".")
-            if len(comp) == 1 and package in requirements:
-                
+                if len(comp) == 2:
+                    meta.specs[comp[0]].append(pkgconfig)
+                meta.specs[package].append(pkgconfig)
 
-    # Push packages:
+    # Load the required packages from spec, to meta
     for package in config._sections["package"].values():
-        if package not in packages:
-            continue
+        file_status = meta.packages[package]
 
-        # Read sources from the packages:
-        specs = packages[package]
-        for spec in specs:
-            pkgconfig = ConfigParser()
-            pkgconfig.read(spec)
-
-            if pkgconfig.get("package", "type") not in {"copy"}:
+        for pkgconfig in meta.specs[package]:
+            if pkgconfig.get("package", "type") == "nongit":
                 continue
 
-            source = pkgconfig.get("package", "source")
-            source = source_directory(source)
-            target = pkgconfig.get("package", "target")
+            source = source_directory(pkgconfig.get("package", "source"))
+            target = target_directory(pkgconfig.get("package", "target"))
 
-            # Fetch the source tree:
-            sources = []
             for workdir, dirs, files in os.walk(source):
-                if len(dirs) == 0:
-                    sources += files
+                if len(dirs) != 0:
+                    continue
 
-        meta.packages.append(Package(package, packages))
+                # Only count for files:
+                for file in files:
+                    left = os.path.join(workdir, file)
+                    right = os.path.join(target, left.removeprefix(source)[1:])
 
-    pass
+                    file_status.append(
+                        FileStatus(left, right, FileStatus.Status.UNKNOWN)
+                    )
+
+    # Dump for testing:
+    for package, file_status in meta.packages.items():
+        print(package)
+        for status in file_status:
+            print(status.source, "->", status.target)
+
+
+load_machine("evil", MoisMeta())
 
 
 def run_nongit(config: ConfigParser) -> bool:

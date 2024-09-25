@@ -4,7 +4,7 @@ import os
 import logging
 import subprocess
 import shutil
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional, List
 
 
@@ -13,7 +13,7 @@ class NongitMeta:
     source: str = ""
     branch: str = ""
     rev: Optional[str] = None
-    include: List[str] = []
+    include: List[str] = field(default_factory=list)
 
 
 def update(workdir: str, meta: NongitMeta) -> Optional[str]:
