@@ -1,0 +1,80 @@
+#!/usr/bin/env python3
+
+"""
+A clangd wrapper that provides the `--query-driver` argument based on the
+compile_commands.json.
+Simplify the argument that clangd uses, perhaps.
+"""
+
+import json
+import sys
+import os
+import logging
+
+
+# (compiler, is_enabled)
+compiler_list = {
+    "aarch64-suse-linux-gcc": True,
+    "aarch64-none-elf-gcc": True,
+}
+
+
+def exec_clangd(argv):
+    # Append some default arguments that I don't want to write them everywhere
+    argv.append("-header-insertion=never")
+    
+    # TODO: find in path besides the wrapper
+    os.execv("/usr/bin/clangd", argv)
+    logging.error("Spawn clangd failed, binary not found?")
+    return -1
+
+
+def main(argv):
+    # find compdb
+    workdir = os.getcwd()
+    while workdir != "/":
+        compdb = os.path.join(workdir, "compile_commands.json")
+        if os.path.exists(compdb):
+            break
+        workdir = os.path.dirname(workdir)
+    else:
+        logging.error("No compile commands found, ignored")
+        return exec_clangd(argv)
+
+    # get all the compilers, may consume some memories...
+    with open(compdb, "r") as ifs:
+        compdb = json.loads(ifs.read())
+
+    drivers = []
+    for block in compdb:
+        # obtain only suffix of the compiler path
+        if "command" in block:
+            compiler_full: str = block["command"]
+            if len(compiler_full) == 0:
+                continue
+
+            compiler_full = compiler_full.split(maxsplit=1)[0]
+        elif "arguments" in block:
+            compiler_full = block["arguments"][0]
+        else:
+            continue
+
+        # compiler_full = "/usr/bin/gcc"
+        # compiler = "gcc"
+        compiler = compiler_full.rsplit('/', maxsplit=1)[-1]
+
+        # check if we need to drive it
+        # TODO: use `**/compiler` to avoid long path?
+        if compiler_list.get(compiler, False):
+            compiler_list[compiler] = False
+            drivers.append(compiler_full)
+
+    # pass them to clangd, besides of any other arguments
+    if len(drivers) != 0:
+        drivers = "-query-driver=" + ','.join(drivers)
+        argv.append(drivers)
+    return exec_clangd(argv)
+
+
+if __name__ == "__main__":
+    exit(main(sys.argv))

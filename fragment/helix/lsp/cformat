@@ -1,0 +1,40 @@
+#!/usr/bin/env python3
+
+"""
+Enable format only when there's .clang-format files.
+"""
+
+import os
+import sys
+
+
+def main(argv):
+    # check for .clang-format file
+    cwd = os.getcwd()
+    found = False
+    while cwd != "/":
+        if os.path.exists(os.path.join(cwd, ".clang-format")):
+            # never returns, TODO: use env
+            os.execv("/usr/bin/clang-format", argv)
+
+        cwd = os.path.dirname(cwd)
+
+    if len(argv) > 1:  # ignore argv[0]
+        # for general c/h file, we use the kernel's format as default
+        # https://github.com/torvalds/linux/blob/196145c606d0f816fd3926483cb1ff87e09c2c0b/.clang-format
+        file = argv[-1]
+        if os.path.splitext(file) in {".c", ".h"}:
+            # never returns
+            format = os.path.expanduser("~/.dotfiles/party/linux-clang-format")
+            os.execv("/usr/bin/clang-format", f"-style=file:{format}", argv)
+
+        with open(argv[-1], "r") as reader:
+            print(reader.read(), end="")
+    else:
+        # just print the input
+        print(sys.stdin.read(), end="")
+    return 0
+
+
+if __name__ == "__main__":
+    exit(main(sys.argv))

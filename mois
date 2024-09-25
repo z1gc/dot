@@ -16,6 +16,10 @@ from collections import defaultdict
 from trait import nongit
 
 
+def should_log_debug():
+    return logging.root.getEffectiveLevel() <= logging.DEBUG
+
+
 WORKING_DIR = os.path.dirname(os.path.realpath(__file__))
 PACKAGE_DIR = os.path.join(WORKING_DIR, "stow")
 MACHINE_DIR = os.path.join(WORKING_DIR, "machine")
@@ -56,33 +60,46 @@ class MoisMeta:
     run_nongit: bool = False
 
 
-def load_machine(machine: str, meta: MoisMeta) -> bool:
+def load_machine(meta: MoisMeta) -> bool:
+    """
+    Input: meta.machine
+    Output: meta.specs
+    """
+
+    # Fetch all specifications, including the prefixes, stores to meta for speedups:
+    for workdir, _, files in os.walk(PACKAGE_DIR):
+        for package in files:
+            comp = package.split(".")
+            assert len(comp) == 1 or len(comp) == 2
+
+            spec = os.path.join(workdir, package)
+            pkgconfig = ConfigParser()
+            pkgconfig.read(spec)
+
+            if len(comp) == 2:
+                meta.specs[comp[0]].append(pkgconfig)
+            meta.specs[package].append(pkgconfig)
+
+    return _load_machine(meta.machine, meta)
+
+
+def _load_machine(machine: str, meta: MoisMeta) -> bool:
+    """
+    Input: machine, meta.specs
+    Output: meta.files
+    """
+
     # Read machine spec first:
     config = ConfigParser()
     config.read(os.path.join(MACHINE_DIR, machine))
 
     # For inherit, we read them recursively:
     for inherit in config._sections.get("inherit", dict()).values():
-        if not load_machine(inherit, meta):
+        if not _load_machine(inherit, meta):
             return False
 
-    # Fetch all specifications, including the prefixes, stores to meta for speedups:
-    if len(meta.specs) == 0:
-        for workdir, _, files in os.walk(PACKAGE_DIR):
-            for package in files:
-                comp = package.split(".")
-                assert len(comp) == 1 or len(comp) == 2
-
-                spec = os.path.join(workdir, package)
-                pkgconfig = ConfigParser()
-                pkgconfig.read(spec)
-
-                if len(comp) == 2:
-                    meta.specs[comp[0]].append(pkgconfig)
-                meta.specs[package].append(pkgconfig)
-
     # Load the required packages from spec, to meta
-    for package in config._sections["package"].values():
+    for package in config._sections.get("package", dict()).values():
         file_status = meta.packages[package]
 
         for pkgconfig in meta.specs[package]:
@@ -106,13 +123,12 @@ def load_machine(machine: str, meta: MoisMeta) -> bool:
                     )
 
     # Dump for testing:
-    for package, file_status in meta.packages.items():
-        print(package)
-        for status in file_status:
-            print(status.source, "->", status.target)
+    if should_log_debug() and machine == meta.machine:
+        for package, file_status in meta.packages.items():
+            for status in file_status:
+                logging.debug("%s: %s -> %s", package, status.source, status.target)
 
-
-load_machine("evil", MoisMeta())
+    return True
 
 
 def run_nongit(config: ConfigParser) -> bool:
@@ -137,3 +153,10 @@ def run_nongit(config: ConfigParser) -> bool:
 
     config.set("package", "rev", rev)
     return True
+
+
+# TEST code
+logging.basicConfig(format="[%(levelname).1s] %(message)s", level=logging.DEBUG)
+mois_meta = MoisMeta()
+mois_meta.machine = "evil"
+load_machine(mois_meta)

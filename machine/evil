@@ -1,6 +1,2 @@
-[machine]
-type = systemd
-os = gentoo
-
-[package]
-0 = fish
+[inherit]
+0 = workstation

@@ -1,0 +1,4 @@
+[package]
+type = copy
+source = clangd
+target = ~/.config/clangd

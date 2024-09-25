@@ -1,0 +1,59 @@
+theme = "fleet_dark"
+
+[editor]
+line-number = "relative"
+true-color = true
+rulers = [80, 120]
+auto-format = false
+
+[keys.normal]
+H = "goto_previous_buffer"  # or gp
+L = "goto_next_buffer"  # or gn
+A-j = ["extend_to_line_bounds", "delete_selection", "paste_after"]
+A-k = ["extend_to_line_bounds", "delete_selection", "move_line_up", "paste_before"]
+A-J = ["extend_to_line_bounds", "yank", "paste_after"]
+A-K = ["extend_to_line_bounds", "yank", "paste_before"]
+"A-;" = "goto_word_reference"
+
+[keys.normal.space]
+F = "file_picker_in_current_buffer_directory"
+
+[keys.normal.g]
+R = ["goto_prev_function_name", "goto_reference"]
+
+# config toggler, faster way
+[keys.normal."'"]
+s = ":toggle search.smart-case"
+r = ":toggle search.regex"
+c = ":toggle search.case-sensitive"
+w = ":toggle search.whole-word"
+h = ":toggle file-picker.hidden"
+a = ":toggle soft-wrap.enable"
+p = ":toggle auto-pairs"
+f = ":toggle auto-format"
+# will reset all configs to config-default
+"'" = ":config-reload"
+
+[keys.insert]
+# Emacs navigator
+C-p = "move_line_up"
+C-n = "move_line_down"
+C-b = "move_char_left"
+C-f = "move_char_right"
+A-b = "move_prev_word_start"
+A-f = "move_next_word_start"
+C-a = "goto_line_start"
+C-e = "goto_line_end_newline"
+# Quick commands
+"A-;" = "command_mode"
+A-x = "command_palette"
+# Fast focus
+A-1 = "focus_1"
+A-2 = "focus_2"
+A-3 = "focus_3"
+A-4 = "focus_4"
+A-5 = "focus_5"
+A-6 = "focus_6"
+A-7 = "focus_7"
+A-8 = "focus_8"
+A-9 = "focus_9"

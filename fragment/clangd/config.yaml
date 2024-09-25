@@ -1,0 +1,24 @@
+# https://github.com/clangd/clangd/issues/1582
+CompileFlags:
+  Add:
+    # report all errors
+    - "-ferror-limit=0"
+  Remove:
+    # ignore aarch64-gcc
+    - "-march=*"
+    - "-mabi=*"
+    - "-mcpu=*"
+    - "-fconserve-stack"
+    - "-fno-allow-store-data-races"
+    - "-femit-struct-debug-baseonly"
+    - "-ffixed-r9"
+    # from linux
+    - "-mpreferred-stack-boundary=*"
+    - "-mindirect-branch=*"
+    - "-mindirect-branch-register"
+    - "-fmin-function-alignment=*"
+    # from busybox
+    - "-malign-data=*"
+    - "-fno-guess-branch-probability"
+    # from hypervisor
+    - "--no-sysroot-suffix"

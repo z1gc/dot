@@ -1,0 +1,4 @@
+[package]
+0 = fish
+1 = helix
+2 = clangd
