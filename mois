@@ -222,6 +222,9 @@ def run_nongit(meta: MoisMeta) -> bool:
     """
 
     for package, specs in meta.specs.items():
+        # TODO: Remove the List:
+        assert len(specs) == 1
+
         for pkgconfig in specs:
             if pkgconfig.get("package", "type") != "nongit":
                 continue
@@ -231,6 +234,10 @@ def run_nongit(meta: MoisMeta) -> bool:
             if not _run_nongit(pkgconfig, meta.dry_run):
                 logging.error("Failed to update nongit repository %s.", package)
                 return False
+
+            # Save back to the spec file:
+            with open(os.path.join(PACKAGE_DIR, package), "w") as writer:
+                pkgconfig.write(writer)
 
     return True
 
@@ -293,8 +300,10 @@ def main(args):
     parser_status.set_defaults(nongit=True)
     parser_status.add_argument("--do", help="do it, for real", action="store_true")
 
-    # logging
+    # parse
     namespace = parser.parse_args(args)
+
+    # logging
     loglevel = logging.INFO
     if namespace.verbose:
         loglevel = logging.DEBUG
@@ -305,15 +314,15 @@ def main(args):
     if not load_specs(meta):
         return False
 
+    if hasattr(namespace, "do") and namespace.do:
+        meta.dry_run = False
+
     if hasattr(namespace, "nongit"):
         # Fast-path to avoid loading the machine:
         return run_nongit(meta)
 
     if namespace.machine is not None:
         meta.machine = namespace.machine
-
-    if hasattr(namespace, "do") and namespace.do:
-        meta.dry_run = False
 
     logging.debug("Loading machine %s...", meta.machine)
     if not load_machine(meta):

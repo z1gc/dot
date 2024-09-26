@@ -3,3 +3,6 @@ type = nongit
 source = https://github.com/oh-my-fish/plugin-foreign-env.git
 target = fish
 branch = master
+
+[include]
+0 = functions

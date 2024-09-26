@@ -34,18 +34,13 @@ def update(workdir: str, meta: NongitMeta) -> Optional[str]:
     else:
         rev = head
 
-    # Before we move ahead, remove all files to keep the repository clean:
-    if not meta.dry_run:
-        shutil.rmtree(workdir)
-        os.mkdir(workdir)
-
     # A dumb way to update, as git-r3 in gentoo:
     def check_call_git(*args: str):
         # Throws exception:
         if meta.dry_run:
             logging.info("Run: 'git %s' in %s", " ".join(args), workdir)
         else:
-            subprocess.check_call(["git"] + args, cwd=workdir)
+            subprocess.check_call(["git"] + list(args), cwd=workdir)
 
     check_call_git("init")
     check_call_git("fetch", "--depth=1", meta.source, rev)
