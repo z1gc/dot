@@ -3,6 +3,8 @@ type = nongit
 source = https://github.com/PatrickF1/fzf.fish.git
 target = fish
 branch = main
+rev = 8920367cf85eee5218cc25a11e209d46e2591e7a
 
 [include]
 0 = functions
+

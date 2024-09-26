@@ -3,8 +3,10 @@ type = nongit
 source = https://github.com/kpbaks/autols.fish.git
 target = fish
 branch = master
+rev = fe2693e80558550e0d995856332b280eb86fde19
 
 [include]
 0 = completions
 1 = conf.d
 2 = functions
+

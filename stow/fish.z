@@ -3,7 +3,9 @@ type = nongit
 source = https://github.com/jethrokuan/z.git
 target = fish
 branch = master
+rev = 85f863f20f24faf675827fb00f3a4e15c7838d76
 
 [include]
 0 = conf.d
 1 = functions
+
