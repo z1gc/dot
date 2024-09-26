@@ -1,0 +1,10 @@
+[package]
+type = nongit
+source = https://github.com/kpbaks/autols.fish.git
+target = fish
+branch = master
+
+[include]
+0 = completions
+1 = conf.d
+2 = functions

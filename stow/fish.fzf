@@ -1,0 +1,8 @@
+[package]
+type = nongit
+source = https://github.com/PatrickF1/fzf.fish.git
+target = fish
+branch = main
+
+[include]
+0 = functions

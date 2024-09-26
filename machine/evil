@@ -1,2 +1,5 @@
 [inherit]
 0 = workstation
+
+[package]
+0 = idea

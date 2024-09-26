@@ -1,0 +1,9 @@
+[package]
+type = nongit
+source = https://github.com/Markcial/upto.git
+target = fish
+branch = master
+
+[include]
+0 = completions
+1 = functions

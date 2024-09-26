@@ -14,6 +14,7 @@ class NongitMeta:
     branch: str = ""
     rev: Optional[str] = None
     include: List[str] = field(default_factory=list)
+    dry_run: bool = True
 
 
 def update(workdir: str, meta: NongitMeta) -> Optional[str]:
@@ -34,19 +35,28 @@ def update(workdir: str, meta: NongitMeta) -> Optional[str]:
         rev = head
 
     # Before we move ahead, remove all files to keep the repository clean:
-    shutil.rmtree(workdir)
-    os.mkdir(workdir)
+    if not meta.dry_run:
+        shutil.rmtree(workdir)
+        os.mkdir(workdir)
 
     # A dumb way to update, as git-r3 in gentoo:
-    subprocess.check_call(["git", "init"], cwd=workdir)
-    subprocess.check_call(["git", "fetch", "--depth=1", meta.source, rev], cwd=workdir)
+    def check_call_git(*args: str):
+        # Throws exception:
+        if meta.dry_run:
+            logging.info("Run: 'git %s' in %s", " ".join(args), workdir)
+        else:
+            subprocess.check_call(["git"] + args, cwd=workdir)
+
+    check_call_git("init")
+    check_call_git("fetch", "--depth=1", meta.source, rev)
     if len(meta.include) != 0:
         args = ["--", *meta.include]
     else:
         args = []
-    subprocess.check_call(["git", "checkout", "FETCH_HEAD", *args], cwd=workdir)
+    check_call_git("checkout", "FETCH_HEAD", *args)
 
     # Clear the '.git' directory we don't want:
-    shutil.rmtree(os.path.join(workdir, ".git"))
+    if not meta.dry_run:
+        shutil.rmtree(os.path.join(workdir, ".git"))
 
     return rev

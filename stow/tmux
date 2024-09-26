@@ -1,0 +1,4 @@
+[package]
+type = copy
+source = tmux
+target = ~/.config/tmux

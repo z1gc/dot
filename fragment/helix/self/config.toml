@@ -6,6 +6,11 @@ true-color = true
 rulers = [80, 120]
 auto-format = false
 
+[editor.file-picker]
+# TODO: merge them into one single option?
+hidden = true
+git-ignore = true
+
 [keys.normal]
 H = "goto_previous_buffer"  # or gp
 L = "goto_next_buffer"  # or gn
@@ -27,7 +32,7 @@ s = ":toggle search.smart-case"
 r = ":toggle search.regex"
 c = ":toggle search.case-sensitive"
 w = ":toggle search.whole-word"
-h = ":toggle file-picker.hidden"
+h = [":toggle file-picker.hidden", ":toggle file-picker.git-ignore"]
 a = ":toggle soft-wrap.enable"
 p = ":toggle auto-pairs"
 f = ":toggle auto-format"

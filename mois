@@ -4,6 +4,7 @@
 
 import argparse
 import os
+import sys
 import shutil
 from dataclasses import dataclass, field
 from configparser import ConfigParser
@@ -12,6 +13,8 @@ import socket
 from enum import Enum
 from typing import List, Dict, DefaultDict
 from collections import defaultdict
+import filecmp
+import subprocess
 
 from trait import nongit
 
@@ -20,10 +23,12 @@ def should_log_debug():
     return logging.root.getEffectiveLevel() <= logging.DEBUG
 
 
+HOME_DIR = os.path.expanduser("~")
 WORKING_DIR = os.path.dirname(os.path.realpath(__file__))
 PACKAGE_DIR = os.path.join(WORKING_DIR, "stow")
 MACHINE_DIR = os.path.join(WORKING_DIR, "machine")
 SOURCE_DIR = os.path.join(WORKING_DIR, "fragment")
+DOTFILES_PREFIX = "dot-"
 
 
 def source_directory(path: str) -> str:
@@ -34,36 +39,52 @@ def target_directory(path: str) -> str:
     return os.path.expanduser(path)
 
 
-@dataclass
 class FileStatus:
     class Status(Enum):
-        UNKNOWN = -1
         IDENTICAL = 0
         DIFFER = 1
         ONLY_LEFT = 2
-        ONLY_RIGHT = 3
 
     source: str
     target: str
     status: Status
 
+    def __init__(self, left, right):
+        self.source = left
+        self.target = right
+
+        # Should compare two files:
+        left_exists = os.path.isfile(left)
+        right_exists = os.path.isfile(right)
+        assert left_exists
+
+        if right_exists:
+            if filecmp.cmp(left, right):
+                self.status = FileStatus.Status.IDENTICAL
+            else:
+                self.status = FileStatus.Status.DIFFER
+        else:
+            self.status = FileStatus.Status.ONLY_LEFT
+
 
 @dataclass
 class MoisMeta:
+    @staticmethod
+    def dlctor():
+        return defaultdict(list)
+
     machine: str = socket.gethostname()
-    specs: DefaultDict[str, List[ConfigParser]] = field(
-        default_factory=lambda: defaultdict(list)
-    )
-    packages: DefaultDict[str, List[FileStatus]] = field(
-        default_factory=lambda: defaultdict(list)
-    )
-    run_nongit: bool = False
+
+    # TODO: Limit all functions' arguments.
+    expands: DefaultDict[str, List[str]] = field(default_factory=dlctor)
+    specs: DefaultDict[str, List[ConfigParser]] = field(default_factory=dlctor)
+    packages: DefaultDict[str, List[FileStatus]] = field(default_factory=dlctor)
+    dry_run: bool = True
 
 
-def load_machine(meta: MoisMeta) -> bool:
+def load_specs(meta: MoisMeta) -> bool:
     """
-    Input: meta.machine
-    Output: meta.specs
+    Output: meta.expands, meta.specs
     """
 
     # Fetch all specifications, including the prefixes, stores to meta for speedups:
@@ -77,18 +98,47 @@ def load_machine(meta: MoisMeta) -> bool:
             pkgconfig.read(spec)
 
             if len(comp) == 2:
-                meta.specs[comp[0]].append(pkgconfig)
+                meta.expands[comp[0]].append(package)
             meta.specs[package].append(pkgconfig)
 
-    return _load_machine(meta.machine, meta)
+    return True
+
+
+def load_file_status(package: str, meta: MoisMeta) -> bool:
+    # TODO: limit arguments to file_status, specs
+    file_status = meta.packages[package]
+
+    for pkgconfig in meta.specs[package]:
+        if pkgconfig.get("package", "type") != "copy":
+            continue
+
+        source = source_directory(pkgconfig.get("package", "source"))
+        target = target_directory(pkgconfig.get("package", "target"))
+
+        for workdir, dirs, files in os.walk(source):
+            if len(dirs) != 0:
+                continue
+
+            # Only count for files:
+            for file in files:
+                left = os.path.join(workdir, file)
+
+                # For target, we should convert 'dot-' to '.' as stow does
+                if file.startswith(DOTFILES_PREFIX):
+                    right = "." + file.removeprefix(DOTFILES_PREFIX)
+                    right = os.path.join(workdir, right)
+                else:
+                    right = left
+
+                right = right.removeprefix(source)[1:]
+                right = os.path.join(target, right)
+
+                file_status.append(FileStatus(left, right))
+
+    return True
 
 
 def _load_machine(machine: str, meta: MoisMeta) -> bool:
-    """
-    Input: machine, meta.specs
-    Output: meta.files
-    """
-
     # Read machine spec first:
     config = ConfigParser()
     config.read(os.path.join(MACHINE_DIR, machine))
@@ -100,53 +150,64 @@ def _load_machine(machine: str, meta: MoisMeta) -> bool:
 
     # Load the required packages from spec, to meta
     for package in config._sections.get("package", dict()).values():
-        file_status = meta.packages[package]
+        if package in meta.expands:
+            packages = meta.expands[package]
+        else:
+            packages = [package]
 
-        for pkgconfig in meta.specs[package]:
-            if pkgconfig.get("package", "type") == "nongit":
-                continue
-
-            source = source_directory(pkgconfig.get("package", "source"))
-            target = target_directory(pkgconfig.get("package", "target"))
-
-            for workdir, dirs, files in os.walk(source):
-                if len(dirs) != 0:
-                    continue
-
-                # Only count for files:
-                for file in files:
-                    left = os.path.join(workdir, file)
-                    right = os.path.join(target, left.removeprefix(source)[1:])
-
-                    file_status.append(
-                        FileStatus(left, right, FileStatus.Status.UNKNOWN)
-                    )
+        for more in packages:
+            if not load_file_status(more, meta):
+                return False
 
     # Dump for testing:
     if should_log_debug() and machine == meta.machine:
         for package, file_status in meta.packages.items():
             for status in file_status:
-                logging.debug("%s: %s -> %s", package, status.source, status.target)
+                source = status.source
+                if source.startswith(SOURCE_DIR):
+                    source = "$FRAGMENT" + source.removeprefix(SOURCE_DIR)
+                elif source.startswith(HOME_DIR):
+                    source = "~" + source.removeprefix(HOME_DIR)
+                target = status.target.replace(HOME_DIR, "~")
+
+                match status.status:
+                    case FileStatus.Status.IDENTICAL:
+                        cmp_status = "="
+                    case FileStatus.Status.DIFFER:
+                        cmp_status = "!"
+                    case FileStatus.Status.ONLY_LEFT:
+                        cmp_status = "<"
+
+                logging.debug("%s: %s -> %s (%s)", package, source, target, cmp_status)
 
     return True
 
 
-def run_nongit(config: ConfigParser) -> bool:
+def load_machine(meta: MoisMeta) -> bool:
+    """
+    Input: meta.specs, meta.expands
+    Output: meta.files
+    """
+
+    return _load_machine(meta.machine, meta)
+
+
+def _run_nongit(config: ConfigParser, dry_run: bool) -> bool:
     assert config.get("package", "type") == "nongit"
 
     source = config.get("package", "source")
     target = config.get("package", "target")
     target = source_directory(target)
-    includes = [v for _, v in config._sections["include"].items()]
+    includes = [v for _, v in config._sections.get("include", dict()).items()]
 
     meta = nongit.NongitMeta(
         source,
         config.get("package", "branch"),
         config.get("package", "rev", fallback=None),
         includes,
+        dry_run,
     )
 
-    logging.info("Running nongit for %s...", target)
     rev = nongit.update(target, meta)
     if rev is None:
         return False
@@ -155,8 +216,121 @@ def run_nongit(config: ConfigParser) -> bool:
     return True
 
 
-# TEST code
-logging.basicConfig(format="[%(levelname).1s] %(message)s", level=logging.DEBUG)
-mois_meta = MoisMeta()
-mois_meta.machine = "evil"
-load_machine(mois_meta)
+def run_nongit(meta: MoisMeta) -> bool:
+    """
+    Input: meta.specs
+    """
+
+    for package, specs in meta.specs.items():
+        for pkgconfig in specs:
+            if pkgconfig.get("package", "type") != "nongit":
+                continue
+
+            # Find one, try to run it:
+            logging.info("Running nongit for %s...", package)
+            if not _run_nongit(pkgconfig, meta.dry_run):
+                logging.error("Failed to update nongit repository %s.", package)
+                return False
+
+    return True
+
+
+def print_diff(left, right):
+    # TODO: Use python library...
+    subprocess.call(["diff", "--color", "-u", left, right])
+
+
+def run_status(meta: MoisMeta) -> bool:
+    """
+    Input: meta.packages
+    """
+
+    for package, file_status in meta.packages.items():
+        for status in file_status:
+            if status.status == FileStatus.Status.IDENTICAL:
+                continue
+
+            # TODO: Merge with the debug information:
+            source = status.source
+            if source.startswith(SOURCE_DIR):
+                source = "$FRAGMENT" + source.removeprefix(SOURCE_DIR)
+            elif source.startswith(HOME_DIR):
+                source = "~" + source.removeprefix(HOME_DIR)
+            target = status.target.replace(HOME_DIR, "~")
+
+            match status.status:
+                case FileStatus.Status.IDENTICAL:
+                    continue
+                case FileStatus.Status.ONLY_LEFT:
+                    logging.info("%s: missing %s -> %s", package, source, target)
+                case FileStatus.Status.DIFFER:
+                    logging.info("%s: differ %s -> %s", package, source, target)
+                    print_diff(status.source, status.target)
+
+    return True
+
+
+def main(args):
+    # main
+    parser = argparse.ArgumentParser(prog="mois", description="Like stow just.")
+    parser.add_argument("-v", "--verbose", help="show debug logs", action="store_true")
+    parser.add_argument("-m", "--machine", help="specify machine", action="store")
+    subparsers = parser.add_subparsers(help="how to cook")
+
+    # TODO: init/config/add/rm
+
+    # status
+    parser_status = subparsers.add_parser("status")
+    parser_status.set_defaults(status=True)
+
+    # apply
+    parser_apply = subparsers.add_parser("apply")
+    parser_apply.set_defaults(apply=True)
+    parser_apply.add_argument("--do", help="do it, for real", action="store_true")
+
+    # nongit
+    parser_status = subparsers.add_parser("pull")
+    parser_status.set_defaults(nongit=True)
+    parser_status.add_argument("--do", help="do it, for real", action="store_true")
+
+    # logging
+    namespace = parser.parse_args(args)
+    loglevel = logging.INFO
+    if namespace.verbose:
+        loglevel = logging.DEBUG
+    logging.basicConfig(format="[%(levelname).1s] %(message)s", level=loglevel)
+
+    # entry
+    meta = MoisMeta()
+    if not load_specs(meta):
+        return False
+
+    if hasattr(namespace, "nongit"):
+        # Fast-path to avoid loading the machine:
+        return run_nongit(meta)
+
+    if namespace.machine is not None:
+        meta.machine = namespace.machine
+
+    if hasattr(namespace, "do") and namespace.do:
+        meta.dry_run = False
+
+    logging.debug("Loading machine %s...", meta.machine)
+    if not load_machine(meta):
+        return False
+
+    if hasattr(namespace, "status"):
+        return run_status(meta)
+    elif hasattr(namespace, "apply"):
+        pass
+    else:
+        # TODO: Validate before 'load_machine':
+        logging.error("Please specify a valid command!")
+        return False
+
+
+if __name__ == "__main__":
+    if main(sys.argv[1:]):
+        exit(0)
+    else:
+        exit(1)
