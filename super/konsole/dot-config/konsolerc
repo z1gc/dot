@@ -1,0 +1,24 @@
+MenuBar=Disabled
+
+[Desktop Entry]
+DefaultProfile=def.profile
+
+[General]
+ConfigVersion=1
+
+[KonsoleWindow]
+ShowWindowTitleOnTitleBar=true
+
+[MainWindow]
+ToolBarsMovable=Disabled
+
+[SplitView]
+SplitViewVisibility=AlwaysHideSplitHeader
+
+[TabBar]
+CloseTabOnMiddleMouseButton=true
+NewTabBehavior=PutNewTabAfterCurrentTab
+NewTabButton=true
+
+[UiSettings]
+ColorScheme=

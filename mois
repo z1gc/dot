@@ -11,7 +11,6 @@ import argparse
 import os
 import sys
 import shutil
-from dataclasses import dataclass
 from configparser import ConfigParser
 import logging
 import socket
@@ -189,6 +188,7 @@ def nongit_update(path: str, config: Dict[str, str], dry_run: bool) -> bool:
     repo = config["repo"]
     branch = config["branch"]
     checkout = config.get("checkout", "").split()
+    exclude = config.get("exclude", "").split()
     rev = config.get("rev", None)
 
     # Prepare workdir, TODO: dry_run?
@@ -223,6 +223,17 @@ def nongit_update(path: str, config: Dict[str, str], dry_run: bool) -> bool:
         args = []
     git(dry_run, "checkout", "FETCH_HEAD", *args)
     logging.info("Nongit: %s at %s", workdir, head)
+
+    # Clean the excluded files, if any:
+    for path in exclude:
+        fullpath = os.path.join(workdir, path)
+
+        if dry_run:
+            logging.info("Run: rm %s", fullpath)
+        elif os.path.isfile(fullpath):
+            os.unlink(fullpath)
+        else:
+            shutil.rmtree(os.path.join(workdir, path))
 
     # Clear the '.git' directory we don't want:
     if not dry_run:
@@ -271,7 +282,7 @@ def run_status(filelist: MoisMeta.FileList) -> bool:
 
             match status.status:
                 case FileStatus.Status.IDENTICAL:
-                    logging.info("%s: identical %s == %s", package, ps, pt)
+                    logging.debug("%s: identical %s == %s", package, ps, pt)
 
                 case FileStatus.Status.ONLY_LEFT:
                     logging.info("%s: missing %s -> %s", package, ps, pt)

@@ -1,0 +1,11 @@
+#!/bin/bash
+
+set -eu
+
+qdbus6 org.kde.plasmashell /PlasmaShell evaluateScript 'for (panel of panelIds) {
+    panel = panelById(panel);
+    if (panel.hiding === "autohide")
+      panel.hiding = "windowsgobelow";
+    else
+      panel.hiding = "autohide";
+}'

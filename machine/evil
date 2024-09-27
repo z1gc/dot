@@ -1,5 +1,7 @@
 [inherit]
 0 = workstation
+1 = graphical
 
 [package]
-0 = idea
+0 = ebm
+1 = idea
