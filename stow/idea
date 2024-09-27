@@ -1,4 +1,0 @@
-[package]
-type = copy
-source = idea
-target = ~

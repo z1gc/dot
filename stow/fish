@@ -1,0 +1,35 @@
+[nongit/autols.fish]
+repo = https://github.com/kpbaks/autols.fish.git
+branch = master
+target = ~/.config/fish
+checkout = completions conf.d functions
+rev = fe2693e80558550e0d995856332b280eb86fde19
+
+[nongit/plugin-foreign-env]
+repo = https://github.com/oh-my-fish/plugin-foreign-env.git
+branch = master
+target = ~/.config/fish
+checkout = functions
+rev = 7f0cf099ae1e1e4ab38f46350ed6757d54471de7
+
+[nongit/fzf.fish]
+repo = https://github.com/PatrickF1/fzf.fish.git
+branch = main
+target = ~/.config/fish
+checkout = functions
+rev = 8920367cf85eee5218cc25a11e209d46e2591e7a
+
+[nongit/upto]
+repo = https://github.com/Markcial/upto.git
+branch = master
+target = ~/.config/fish
+checkout = completions functions
+rev = 2d1f35453fb55747d50da8c1cb1809840f99a646
+
+[nongit/z]
+repo = https://github.com/jethrokuan/z.git
+branch = master
+target = ~/.config/fish
+checkout = conf.d functions
+rev = 85f863f20f24faf675827fb00f3a4e15c7838d76
+

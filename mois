@@ -1,22 +1,25 @@
 #!/usr/bin/env python3
 
 # MOIS <> STOW
+# TODO: Rewritten in Rust, as a more generic module,
+#       e.g.
+#       - For manage the "outside" files in the repo, it can be in network as well.
+#       - Git-compatible, can use tools like 'magit' to view diffs or resolve conflicts.
+#       - Support hooks.
 
 import argparse
 import os
 import sys
 import shutil
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from configparser import ConfigParser
 import logging
 import socket
 from enum import Enum
-from typing import List, Dict, DefaultDict
+from typing import List, Dict, DefaultDict, Optional
 from collections import defaultdict
 import filecmp
 import subprocess
-
-from trait import nongit
 
 
 def should_log_debug():
@@ -27,16 +30,26 @@ HOME_DIR = os.path.expanduser("~")
 WORKING_DIR = os.path.dirname(os.path.realpath(__file__))
 PACKAGE_DIR = os.path.join(WORKING_DIR, "stow")
 MACHINE_DIR = os.path.join(WORKING_DIR, "machine")
-SOURCE_DIR = os.path.join(WORKING_DIR, "fragment")
+SOURCE_DIR = os.path.join(WORKING_DIR, "super")
+NONGIT_DIR = os.path.join(WORKING_DIR, "party")
 DOTFILES_PREFIX = "dot-"
 
 
-def source_directory(path: str) -> str:
-    return os.path.join(SOURCE_DIR, path)
+def pretty_print_path(source: str):
+    """
+    Input:
+      global(SOURCE_DIR) for removeprefix
+      global(HOME_DIR) for removeprefix
+    """
 
-
-def target_directory(path: str) -> str:
-    return os.path.expanduser(path)
+    if source.startswith(SOURCE_DIR):
+        return "S" + source.removeprefix(SOURCE_DIR)
+    elif source.startswith(NONGIT_DIR):
+        return "P" + source.removeprefix(NONGIT_DIR)
+    elif source.startswith(HOME_DIR):
+        return "~" + source.removeprefix(HOME_DIR)
+    else:
+        return source
 
 
 class FileStatus:
@@ -67,217 +80,252 @@ class FileStatus:
             self.status = FileStatus.Status.ONLY_LEFT
 
 
-@dataclass
 class MoisMeta:
-    @staticmethod
-    def dlctor():
-        return defaultdict(list)
+    machine: str
 
-    machine: str = socket.gethostname()
+    # TODO: python3.12 introduces 'type' keyword:
+    Specs = Dict[str, ConfigParser]
+    specs: Specs
 
-    # TODO: Limit all functions' arguments.
-    expands: DefaultDict[str, List[str]] = field(default_factory=dlctor)
-    specs: DefaultDict[str, List[ConfigParser]] = field(default_factory=dlctor)
-    packages: DefaultDict[str, List[FileStatus]] = field(default_factory=dlctor)
-    dry_run: bool = True
+    FileList = DefaultDict[str, List[FileStatus]]
+    filelist: FileList
+
+    dry_run: bool
+    force: bool
 
 
-def load_specs(meta: MoisMeta) -> bool:
+def load_specs() -> Optional[MoisMeta.Specs]:
     """
-    Output: meta.expands, meta.specs
+    Input: global(PACKAGE_DIR) for os.walk
     """
 
-    # Fetch all specifications, including the prefixes, stores to meta for speedups:
+    specs: MoisMeta.Specs = dict()
+
+    # TODO: USE flag like gentoo? It may needs redesign...
     for workdir, _, files in os.walk(PACKAGE_DIR):
         for package in files:
-            comp = package.split(".")
-            assert len(comp) == 1 or len(comp) == 2
+            if package in specs:
+                logging.error("Duplicate package %s, cannot continue!", package)
+                return None
 
             spec = os.path.join(workdir, package)
             pkgconfig = ConfigParser()
             pkgconfig.read(spec)
 
-            if len(comp) == 2:
-                meta.expands[comp[0]].append(package)
-            meta.specs[package].append(pkgconfig)
+            # TODO: Avoid the private field:
+            pkgconfig._mois_realpath = spec
+            specs[package] = pkgconfig
 
-    return True
-
-
-def load_file_status(package: str, meta: MoisMeta) -> bool:
-    # TODO: limit arguments to file_status, specs
-    file_status = meta.packages[package]
-
-    for pkgconfig in meta.specs[package]:
-        if pkgconfig.get("package", "type") != "copy":
-            continue
-
-        source = source_directory(pkgconfig.get("package", "source"))
-        target = target_directory(pkgconfig.get("package", "target"))
-
-        for workdir, dirs, files in os.walk(source):
-            if len(dirs) != 0:
-                continue
-
-            # Only count for files:
-            for file in files:
-                left = os.path.join(workdir, file)
-
-                # For target, we should convert 'dot-' to '.' as stow does
-                if file.startswith(DOTFILES_PREFIX):
-                    right = "." + file.removeprefix(DOTFILES_PREFIX)
-                    right = os.path.join(workdir, right)
-                else:
-                    right = left
-
-                right = right.removeprefix(source)[1:]
-                right = os.path.join(target, right)
-
-                file_status.append(FileStatus(left, right))
-
-    return True
+    return specs
 
 
-def _load_machine(machine: str, meta: MoisMeta) -> bool:
-    # Read machine spec first:
-    config = ConfigParser()
-    config.read(os.path.join(MACHINE_DIR, machine))
+def load_filelist(machine: str, specs: MoisMeta.Specs) -> Optional[MoisMeta.FileList]:
+    """
+    Input:
+      global(MACHINE_DIR) for ConfigParser
+      global(SOURCE_DIR) for os.walk
+      global(DOTFILES_PREFIX) for replace
+    """
 
-    # For inherit, we read them recursively:
-    for inherit in config._sections.get("inherit", dict()).values():
-        if not _load_machine(inherit, meta):
-            return False
+    filelist: MoisMeta.FileList = defaultdict(list)
 
-    # Load the required packages from spec, to meta
-    for package in config._sections.get("package", dict()).values():
-        if package in meta.expands:
-            packages = meta.expands[package]
-        else:
-            packages = [package]
+    def load_one(this_machine: str) -> bool:
+        # Read machine spec first:
+        config = ConfigParser()
+        config.read(os.path.join(MACHINE_DIR, this_machine))
 
-        for more in packages:
-            if not load_file_status(more, meta):
+        # For inherit, we read them recursively:
+        for inherit in config._sections.get("inherit", dict()).values():
+            if not load_one(inherit):
                 return False
 
-    # Dump for testing:
-    if should_log_debug() and machine == meta.machine:
-        for package, file_status in meta.packages.items():
-            for status in file_status:
-                source = status.source
-                if source.startswith(SOURCE_DIR):
-                    source = "$FRAGMENT" + source.removeprefix(SOURCE_DIR)
-                elif source.startswith(HOME_DIR):
-                    source = "~" + source.removeprefix(HOME_DIR)
-                target = status.target.replace(HOME_DIR, "~")
+        for package in config._sections.get("package", dict()).values():
+            file_status: List[FileStatus] = filelist[package]
 
-                match status.status:
-                    case FileStatus.Status.IDENTICAL:
-                        cmp_status = "="
-                    case FileStatus.Status.DIFFER:
-                        cmp_status = "!"
-                    case FileStatus.Status.ONLY_LEFT:
-                        cmp_status = "<"
+            def walk_files(source: str, target: str):
+                for workdir, dirs, files in os.walk(source):
+                    if len(dirs) != 0:
+                        continue
 
-                logging.debug("%s: %s -> %s (%s)", package, source, target, cmp_status)
+                    # Only count for files:
+                    for file in files:
+                        left = os.path.join(workdir, file)
 
-    return True
+                        # For target, we should convert 'dot-' to '.' as stow does
+                        right = left.replace(f"/{DOTFILES_PREFIX}", "/.")
+                        right = right.removeprefix(source)[1:]
+                        right = os.path.join(target, right)
+
+                        file_status.append(FileStatus(left, right))
+
+            # Load package itselfs:
+            # TODO: resolve root target, e.g. '/etc'
+            walk_files(os.path.join(SOURCE_DIR, package), HOME_DIR)
+
+            # Load nongit dependencies:
+            pkgconfig = specs[package]
+            for k, v in pkgconfig._sections.items():
+                name = get_nongit_name(k)
+                if name is None:
+                    continue
+
+                target = os.path.expanduser(v["target"])
+                walk_files(os.path.join(NONGIT_DIR, package, name), target)
+
+        return True
+
+    if not load_one(machine):
+        return None
+    return filelist
 
 
-def load_machine(meta: MoisMeta) -> bool:
+def nongit_update(path: str, config: Dict[str, str], dry_run: bool) -> bool:
     """
-    Input: meta.specs, meta.expands
-    Output: meta.files
+    Input: global(NONGIT_DIR) for subprocess
     """
 
-    return _load_machine(meta.machine, meta)
+    # From config:
+    workdir = os.path.join(NONGIT_DIR, path)
+    repo = config["repo"]
+    branch = config["branch"]
+    checkout = config.get("checkout", "").split()
+    rev = config.get("rev", None)
 
+    # Prepare workdir, TODO: dry_run?
+    if not os.path.isdir(workdir):
+        os.makedirs(workdir)
 
-def _run_nongit(config: ConfigParser, dry_run: bool) -> bool:
-    assert config.get("package", "type") == "nongit"
+    def git(dry_run: bool, *args: str):
+        if dry_run:
+            logging.info("Run: 'git %s' in %s", " ".join(args), workdir)
+        else:
+            return subprocess.check_output(["git"] + list(args), cwd=workdir)
 
-    source = config.get("package", "source")
-    target = config.get("package", "target")
-    target = source_directory(target)
-    includes = [v for _, v in config._sections.get("include", dict()).items()]
-
-    meta = nongit.NongitMeta(
-        source,
-        config.get("package", "branch"),
-        config.get("package", "rev", fallback=None),
-        includes,
-        dry_run,
-    )
-
-    rev = nongit.update(target, meta)
-    if rev is None:
+    # Fetch latest commit of the branch:
+    heads: bytes = git(False, "ls-remote", repo, f"refs/heads/{branch}")
+    heads = heads.splitlines()
+    if len(heads) != 1:
+        logging.error("Cannot match the exact branch!")
         return False
 
-    config.set("package", "rev", rev)
+    head = heads[0].split()[0].decode("ascii")
+    if rev is not None and rev == head:
+        logging.info("Already up-to-date, skipped.")
+        return head
+    config["rev"] = head
+
+    # A dumb way to update, as git-r3 in gentoo:
+    git(dry_run, "init")
+    git(dry_run, "fetch", "--depth=1", repo, head)
+    if len(checkout) != 0:
+        args = ["--", *checkout]
+    else:
+        args = []
+    git(dry_run, "checkout", "FETCH_HEAD", *args)
+    logging.info("Nongit: %s at %s", workdir, head)
+
+    # Clear the '.git' directory we don't want:
+    if not dry_run:
+        shutil.rmtree(os.path.join(workdir, ".git"))
+
     return True
 
 
-def run_nongit(meta: MoisMeta) -> bool:
-    """
-    Input: meta.specs
-    """
+def get_nongit_name(key: str) -> Optional[str]:
+    if not key.startswith("nongit/"):
+        return None
+    return key.split("/", 1)[-1]
 
-    for package, specs in meta.specs.items():
-        # TODO: Remove the List:
-        assert len(specs) == 1
 
-        for pkgconfig in specs:
-            if pkgconfig.get("package", "type") != "nongit":
+def run_nongit(specs: MoisMeta.Specs, dry_run: bool) -> bool:
+    for package, pkgconfig in specs.items():
+        # Search for "nongit/" key:
+        for k, v in pkgconfig._sections.items():
+            name = get_nongit_name(k)
+            if name is None:
                 continue
 
-            # Find one, try to run it:
-            logging.info("Running nongit for %s...", package)
-            if not _run_nongit(pkgconfig, meta.dry_run):
-                logging.error("Failed to update nongit repository %s.", package)
+            logging.info("Running nongit for %s/%s...", package, name)
+            if not nongit_update(f"{package}/{name}", v, dry_run):
+                logging.error("Fail to run nongit!")
                 return False
 
             # Save back to the spec file:
-            with open(os.path.join(PACKAGE_DIR, package), "w") as writer:
-                pkgconfig.write(writer)
+            if not dry_run:
+                with open(pkgconfig._mois_realpath, "w") as writer:
+                    pkgconfig.write(writer)
 
     return True
 
 
-def print_diff(left, right):
-    # TODO: Use python library...
-    subprocess.call(["diff", "--color", "-u", left, right])
-
-
-def run_status(meta: MoisMeta) -> bool:
+def run_status(filelist: MoisMeta.FileList) -> bool:
     """
     Input: meta.packages
     """
 
-    for package, file_status in meta.packages.items():
-        for status in file_status:
-            if status.status == FileStatus.Status.IDENTICAL:
-                continue
-
-            # TODO: Merge with the debug information:
-            source = status.source
-            if source.startswith(SOURCE_DIR):
-                source = "$FRAGMENT" + source.removeprefix(SOURCE_DIR)
-            elif source.startswith(HOME_DIR):
-                source = "~" + source.removeprefix(HOME_DIR)
-            target = status.target.replace(HOME_DIR, "~")
+    # TODO: Python missing the flatten...
+    for package, files in filelist.items():
+        for status in files:
+            ps = pretty_print_path(status.source)
+            pt = pretty_print_path(status.target)
 
             match status.status:
                 case FileStatus.Status.IDENTICAL:
-                    continue
+                    logging.info("%s: identical %s == %s", package, ps, pt)
+
                 case FileStatus.Status.ONLY_LEFT:
-                    logging.info("%s: missing %s -> %s", package, source, target)
+                    logging.info("%s: missing %s -> %s", package, ps, pt)
+
                 case FileStatus.Status.DIFFER:
-                    logging.info("%s: differ %s -> %s", package, source, target)
-                    print_diff(status.source, status.target)
+                    logging.info("%s: differ %s -> %s", package, ps, pt)
+
+                    # TODO: Use python library...
+                    subprocess.call(
+                        ["diff", "-u7", "--color", status.source, status.target]
+                    )
 
     return True
 
 
-def main(args):
+def run_apply(filelist: MoisMeta.FileList, dry_run: bool, force: bool) -> bool:
+    copies = []
+
+    for package, files in filelist.items():
+        for status in files:
+            if status.status == FileStatus.Status.IDENTICAL:
+                continue
+
+            confirm = True
+            if status.status == FileStatus.Status.ONLY_LEFT:
+                if not (force or dry_run):
+                    logging.info(
+                        "%s: differ %s -> %s",
+                        package,
+                        pretty_print_path(status.source),
+                        pretty_print_path(status.target),
+                    )
+
+                    confirm = True if input("overwrite? [y/n]:") == "y" else False
+
+            if confirm:
+                copies.append((package, status, status.source, status.target))
+
+    for package, status, pretty_source, pretty_target in copies:
+        # TODO: consider sudo
+        target_parent = os.path.dirname(status.target)
+        if not os.path.isdir(target_parent):
+            logging.info("Run: mkdir %s", target_parent)
+            if not dry_run:
+                os.makedirs(target_parent)
+
+        logging.info("Run: cp %s -> %s", pretty_source, pretty_target)
+        if not dry_run:
+            shutil.copyfile(status.source, status.target)
+
+    return True
+
+
+def parse_args(args):
     # main
     parser = argparse.ArgumentParser(prog="mois", description="Like stow just.")
     parser.add_argument("-v", "--verbose", help="show debug logs", action="store_true")
@@ -288,54 +336,67 @@ def main(args):
 
     # status
     parser_status = subparsers.add_parser("status")
-    parser_status.set_defaults(status=True)
+    parser_status.set_defaults(op=True, status=True)
 
     # apply
     parser_apply = subparsers.add_parser("apply")
-    parser_apply.set_defaults(apply=True)
+    parser_apply.set_defaults(op=True, apply=True)
     parser_apply.add_argument("--do", help="do it, for real", action="store_true")
+    parser_apply.add_argument(
+        "-f", "--force", help="without asking", action="store_true"
+    )
 
     # nongit
     parser_status = subparsers.add_parser("pull")
-    parser_status.set_defaults(nongit=True)
+    parser_status.set_defaults(op=True, nongit=True)
     parser_status.add_argument("--do", help="do it, for real", action="store_true")
 
     # parse
-    namespace = parser.parse_args(args)
+    return parser.parse_args(args)
 
-    # logging
+
+def main(args):
+    namespace = parse_args(args)
+
     loglevel = logging.INFO
     if namespace.verbose:
         loglevel = logging.DEBUG
     logging.basicConfig(format="[%(levelname).1s] %(message)s", level=loglevel)
 
+    if not getattr(namespace, "op", False):
+        logging.error("Please specify a valid command! Use '--help' for commands.")
+        return False
+
     # entry
     meta = MoisMeta()
-    if not load_specs(meta):
+
+    meta.specs = load_specs()
+    if meta.specs is None:
+        logging.error("Reading specs failed!")
         return False
 
-    if hasattr(namespace, "do") and namespace.do:
-        meta.dry_run = False
+    meta.dry_run = not getattr(namespace, "do", False)
 
-    if hasattr(namespace, "nongit"):
+    if getattr(namespace, "nongit", False):
         # Fast-path to avoid loading the machine:
-        return run_nongit(meta)
+        return run_nongit(meta.specs, meta.dry_run)
 
-    if namespace.machine is not None:
-        meta.machine = namespace.machine
+    meta.machine = namespace.machine
+    if meta.machine is None:
+        meta.machine = socket.gethostname()
 
     logging.debug("Loading machine %s...", meta.machine)
-    if not load_machine(meta):
-        return False
+    meta.filelist = load_filelist(meta.machine, meta.specs)
 
-    if hasattr(namespace, "status"):
-        return run_status(meta)
-    elif hasattr(namespace, "apply"):
-        pass
-    else:
-        # TODO: Validate before 'load_machine':
-        logging.error("Please specify a valid command!")
-        return False
+    if getattr(namespace, "status", False):
+        return run_status(meta.filelist)
+
+    meta.force = getattr(namespace, "force", False)
+    if getattr(namespace, "apply", False):
+        return run_apply(meta.filelist, meta.dry_run, meta.force)
+
+    logging.error("Why here? What's wrong?")
+    return False
 
 
 if __name__ == "__main__":
