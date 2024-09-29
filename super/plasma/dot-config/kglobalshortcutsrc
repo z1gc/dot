@@ -1,9 +1,10 @@
 [ActivityManager]
 _k_friendly_name=活动管理器
-switch-to-activity-fe48ea83-9b65-4850-aac3-1f6db91198bd=none,none,切换到活动“默认”
+switch-to-activity-8b489770-987d-45ae-a70e-ffdb5dfb3ef3=none,none,切换到活动“Default”
 
 [KDE Keyboard Layout Switcher]
 Switch keyboard layout to 汉语=none,none,切换键盘布局为 汉语
+Switch keyboard layout to 英语（美国）=none,none,切换键盘布局为 英语（美国）
 Switch to Last-Used Keyboard Layout=none,Meta+Alt+L,切换到上次使用过的键盘布局
 Switch to Next Keyboard Layout=none,Meta+Alt+K,切换到下一个键盘布局
 _k_friendly_name=键盘布局切换器
