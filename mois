@@ -186,6 +186,7 @@ def load_filelist(machine: str, specs: MoisMeta.Specs) -> Optional[MoisMeta.File
 def nongit_update(path: str, config: Dict[str, str], dry_run: bool) -> bool:
     """
     Input: global(NONGIT_DIR) for subprocess
+    Output: config["rev"] if success
     """
 
     # From config:
@@ -271,6 +272,7 @@ def run_nongit(specs: MoisMeta.Specs, dry_run: bool) -> bool:
 
             # Save back to the spec file:
             if not dry_run:
+                pkgconfig.set(section, "rev", config["rev"])  # TODO: As return?
                 with open(spec, "w") as writer:
                     pkgconfig.write(writer)
 
