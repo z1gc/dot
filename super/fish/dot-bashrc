@@ -1,0 +1,27 @@
+# Sample .bashrc for SUSE Linux
+# Copyright (c) SUSE Software Solutions Germany GmbH
+
+# There are 3 different types of shells in bash: the login shell, normal shell
+# and interactive shell. Login shells read ~/.profile and interactive shells
+# read ~/.bashrc; in our setup, /etc/profile sources ~/.bashrc - thus all
+# settings made here will also take effect in a login shell.
+#
+# NOTE: It is recommended to make language settings in ~/.profile rather than
+# here, since multilingual X sessions would not work properly if LANG is over-
+# ridden in every subshell.
+
+# PATH here for all, invoke bash instead of fish for most compatibility
+export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$HOME/.elan/bin:$PATH"
+export RUSTUP_DIST_SERVER="https://mirrors.ustc.edu.cn/rust-static"
+
+# make cmake export compile_commands.json by default
+export CMAKE_EXPORT_COMPILE_COMMANDS=ON
+
+# https://wiki.archlinux.org/title/Fish
+if [[ $(ps --no-header --pid=$PPID --format=comm) != "fish" && -z ${BASH_EXECUTION_STRING} && ${SHLVL} == 1 ]]
+then
+	shopt -q login_shell && LOGIN_OPTION='--login' || LOGIN_OPTION=''
+	exec fish $LOGIN_OPTION
+fi
+
+test -s ~/.alias && . ~/.alias || true

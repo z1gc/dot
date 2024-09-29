@@ -144,9 +144,6 @@ def load_filelist(machine: str, specs: MoisMeta.Specs) -> Optional[MoisMeta.File
 
             def walk_files(source: str, target: str):
                 for workdir, dirs, files in os.walk(source):
-                    if len(dirs) != 0:
-                        continue
-
                     # Only count for files:
                     for file in files:
                         left = os.path.join(workdir, file)
