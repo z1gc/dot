@@ -255,6 +255,9 @@ switch to next activity=none,,切换到下一个活动
 switch to previous activity=none,,切换到上一个活动
 toggle do not disturb=none,,切换勿扰模式
 
+[services][kde-panel-hide.desktop]
+_launch=Meta
+
 [services][org.kde.konsole.desktop]
 _launch=Meta+Return
 
@@ -273,9 +276,6 @@ RecordWindow=none
 RectangularRegionScreenShot=Print
 WindowUnderCursorScreenShot=none
 _launch=Meta+Print
-
-[services][panel_hide.sh.desktop]
-_launch=Meta
 
 [wacomtablet]
 Map to fullscreen=Meta+Ctrl+F,Meta+Ctrl+F,映射到全屏

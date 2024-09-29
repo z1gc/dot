@@ -292,10 +292,43 @@ def run_status(filelist: MoisMeta.FileList) -> bool:
                 case FileStatus.Status.DIFFER:
                     logging.info("%s: differ %s -> %s", package, ps, pt)
 
-                    # TODO: Use python library...
+                    # TODO: Use python library instead:
                     subprocess.call(
                         ["diff", "-u7", "--color", status.source, status.target]
                     )
+
+    return True
+
+
+def run_add(filelist: MoisMeta.FileList, files_add: List[str]):
+    # To speed a little up, TODO: make filelist a set:
+    files_add = set(files_add)
+
+    # TODO: Lazy load the filelist, only load for matched files:
+    for package, files in filelist.items():
+        for status in files:
+            if status.status != FileStatus.Status.DIFFER:
+                continue
+
+            if status.target not in files_add:
+                continue
+
+            # TODO: For non-existance package, we shall create one:
+            logging.info(
+                "%s: add %s -> %s",
+                package,
+                pretty_print_path(status.target),
+                pretty_print_path(status.source),
+            )
+
+            # TODO: With dry_run:
+            shutil.copy2(status.target, status.source)
+            files_add.remove(status.target)
+
+    if len(files_add) != 0:
+        for remain in files_add:
+            logging.warning("skip useless file: %s", remain)
+        return False
 
     return True
 
@@ -359,6 +392,13 @@ def parse_args(args):
         "-f", "--force", help="without asking", action="store_true"
     )
 
+    # add
+    parser_add = subparsers.add_parser("add")
+    parser_add.set_defaults(op=True, add=True)
+    parser_add.add_argument(
+        "files", metavar="file", type=str, nargs="+", help="files to add"
+    )
+
     # nongit
     parser_status = subparsers.add_parser("pull")
     parser_status.set_defaults(op=True, nongit=True)
@@ -403,6 +443,9 @@ def main(args):
 
     if getattr(namespace, "status", False):
         return run_status(meta.filelist)
+
+    if getattr(namespace, "add", False):
+        return run_add(meta.filelist, namespace.files)
 
     meta.force = getattr(namespace, "force", False)
     if getattr(namespace, "apply", False):
