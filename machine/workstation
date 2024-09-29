@@ -1,6 +1,9 @@
 [package]
 0 = fish
 1 = helix
-2 = clangd
-3 = tmux
-4 = npm
+2 = tmux
+3 = npm
+4 = fcitx
+5 = konsole
+6 = plasma
+7 = idea
