@@ -5,6 +5,7 @@ line-number = "relative"
 true-color = true
 rulers = [80, 120]
 auto-format = false
+color-modes = true
 
 [editor.file-picker]
 # TODO: merge them into one single option?

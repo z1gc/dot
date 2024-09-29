@@ -11,29 +11,30 @@ import argparse
 import os
 import sys
 import shutil
-from configparser import ConfigParser
+from configparser import ConfigParser, NoSectionError
 import logging
 import socket
 from enum import Enum
-from typing import List, Dict, DefaultDict, Optional
+from typing import List, Dict, DefaultDict, Optional, Tuple
 from collections import defaultdict
 import filecmp
 import subprocess
 
 
-def should_log_debug():
+def should_log_debug() -> bool:
     return logging.root.getEffectiveLevel() <= logging.DEBUG
 
 
 HOME_DIR = os.path.expanduser("~")
-WORKING_DIR = os.path.dirname(os.path.realpath(__file__))
+THIS_SCRIPT = os.path.realpath(__file__)
+WORKING_DIR = os.path.dirname(THIS_SCRIPT)
 PACKAGE_DIR = os.path.join(WORKING_DIR, "stow")
 MACHINE_DIR = os.path.join(WORKING_DIR, "machine")
 SOURCE_DIR = os.path.join(WORKING_DIR, "super")
 NONGIT_DIR = os.path.join(WORKING_DIR, "party")
 
 
-def pretty_print_path(source: str):
+def pretty_print_path(source: str) -> str:
     """
     Input:
       global(SOURCE_DIR) for removeprefix
@@ -62,7 +63,7 @@ class FileStatus:
     target: str
     status: Status
 
-    def __init__(self, left, right):
+    def __init__(self, left: str, right: str):
         self.source = left
         self.target = right
 
@@ -85,7 +86,7 @@ class MoisMeta:
     machine: str
 
     # TODO: python3.12 introduces 'type' keyword:
-    Specs = Dict[str, ConfigParser]
+    Specs = Dict[str, Tuple[str, ConfigParser]]
     specs: Specs
 
     FileList = DefaultDict[str, List[FileStatus]]
@@ -112,10 +113,7 @@ def load_specs() -> Optional[MoisMeta.Specs]:
             spec = os.path.join(workdir, package)
             pkgconfig = ConfigParser()
             pkgconfig.read(spec)
-
-            # TODO: Avoid the private field:
-            pkgconfig._mois_realpath = spec
-            specs[package] = pkgconfig
+            specs[package] = (spec, pkgconfig)
 
     return specs
 
@@ -135,14 +133,22 @@ def load_filelist(machine: str, specs: MoisMeta.Specs) -> Optional[MoisMeta.File
         config.read(os.path.join(MACHINE_DIR, this_machine))
 
         # For inherit, we read them recursively:
-        for inherit in config._sections.get("inherit", dict()).values():
-            if not load_one(inherit):
-                return False
+        try:
+            for inherit in [v for _, v in config.items("inherit")]:
+                if not load_one(inherit):
+                    return False
+        except NoSectionError:
+            pass
 
-        for package in config._sections.get("package", dict()).values():
+        try:
+            packages = [v for _, v in config.items("package")]
+        except NoSectionError:
+            packages = []
+
+        for package in packages:
             file_status: List[FileStatus] = filelist[package]
 
-            def walk_files(source: str, target: str):
+            def walk_files(source: str, target: str) -> None:
                 for workdir, dirs, files in os.walk(source):
                     # Only count for files:
                     for file in files:
@@ -160,13 +166,13 @@ def load_filelist(machine: str, specs: MoisMeta.Specs) -> Optional[MoisMeta.File
             walk_files(os.path.join(SOURCE_DIR, package), HOME_DIR)
 
             # Load nongit dependencies:
-            pkgconfig = specs[package]
-            for k, v in pkgconfig._sections.items():
-                name = get_nongit_name(k)
+            _, pkgconfig = specs[package]
+            for section in pkgconfig.sections():
+                name = get_nongit_name(section)
                 if name is None:
                     continue
 
-                target = os.path.expanduser(v["target"])
+                target = os.path.expanduser(pkgconfig.get(section, "target"))
                 walk_files(os.path.join(NONGIT_DIR, package, name), target)
 
         return True
@@ -194,15 +200,15 @@ def nongit_update(path: str, config: Dict[str, str], dry_run: bool) -> bool:
     if not os.path.isdir(workdir):
         os.makedirs(workdir)
 
-    def git(dry_run: bool, *args: str):
+    def git(dry_run: bool, *args: str) -> bytes:
         if dry_run:
             logging.info("Run: 'git %s' in %s", " ".join(args), workdir)
+            return b""
         else:
             return subprocess.check_output(["git"] + list(args), cwd=workdir)
 
     # Fetch latest commit of the branch:
-    heads: bytes = git(False, "ls-remote", repo, f"refs/heads/{branch}")
-    heads = heads.splitlines()
+    heads = git(False, "ls-remote", repo, f"refs/heads/{branch}").splitlines()
     if len(heads) != 1:
         logging.error("Cannot match the exact branch!")
         return False
@@ -248,21 +254,24 @@ def get_nongit_name(key: str) -> Optional[str]:
 
 
 def run_nongit(specs: MoisMeta.Specs, dry_run: bool) -> bool:
-    for package, pkgconfig in specs.items():
+    pkgconfig: ConfigParser
+
+    for package, (spec, pkgconfig) in specs.items():
         # Search for "nongit/" key:
-        for k, v in pkgconfig._sections.items():
-            name = get_nongit_name(k)
+        for section in pkgconfig.sections():
+            name = get_nongit_name(section)
             if name is None:
                 continue
 
             logging.info("Running nongit for %s/%s...", package, name)
-            if not nongit_update(f"{package}/{name}", v, dry_run):
+            config = dict(pkgconfig.items(section))
+            if not nongit_update(f"{package}/{name}", config, dry_run):
                 logging.error("Fail to run nongit!")
                 return False
 
             # Save back to the spec file:
             if not dry_run:
-                with open(pkgconfig._mois_realpath, "w") as writer:
+                with open(spec, "w") as writer:
                     pkgconfig.write(writer)
 
     return True
@@ -297,9 +306,9 @@ def run_status(filelist: MoisMeta.FileList) -> bool:
     return True
 
 
-def run_add(filelist: MoisMeta.FileList, files_add: List[str]):
+def run_add(filelist: MoisMeta.FileList, files_add: List[str]) -> bool:
     # To speed a little up, TODO: make filelist a set:
-    files_add = set(files_add)
+    files_set = set(files_add)
 
     # TODO: Lazy load the filelist, only load for matched files:
     for package, files in filelist.items():
@@ -307,7 +316,7 @@ def run_add(filelist: MoisMeta.FileList, files_add: List[str]):
             if status.status != FileStatus.Status.DIFFER:
                 continue
 
-            if status.target not in files_add:
+            if status.target not in files_set:
                 continue
 
             # TODO: For non-existance package, we shall create one:
@@ -320,10 +329,10 @@ def run_add(filelist: MoisMeta.FileList, files_add: List[str]):
 
             # TODO: With dry_run:
             shutil.copy2(status.target, status.source)
-            files_add.remove(status.target)
+            files_set.remove(status.target)
 
-    if len(files_add) != 0:
-        for remain in files_add:
+    if len(files_set) != 0:
+        for remain in files_set:
             logging.warning("skip useless file: %s", remain)
         return False
 
@@ -350,7 +359,7 @@ def run_apply(filelist: MoisMeta.FileList, dry_run: bool, force: bool) -> bool:
             if confirm:
                 copies.append((package, status, ps, pt))
 
-    def unlink_broken(link: str, pretty: str):
+    def unlink_broken(link: str, pretty: str) -> None:
         if os.path.islink(link) and not os.path.exists(link):
             logging.debug("Run: unlink %s", pretty)
             os.unlink(link)
@@ -376,7 +385,7 @@ def run_apply(filelist: MoisMeta.FileList, dry_run: bool, force: bool) -> bool:
     return True
 
 
-def parse_args(args):
+def parse_args(args: List[str]) -> argparse.Namespace:
     # main
     parser = argparse.ArgumentParser(prog="mois", description="Like stow just.")
     parser.add_argument("-v", "--verbose", help="show debug logs", action="store_true")
@@ -409,11 +418,15 @@ def parse_args(args):
     parser_status.set_defaults(op=True, nongit=True)
     parser_status.add_argument("--do", help="do it, for real", action="store_true")
 
+    # mypy
+    parser_mypy = subparsers.add_parser("mypy")
+    parser_mypy.set_defaults(op=True, mypy=True)
+
     # parse
     return parser.parse_args(args)
 
 
-def main(args):
+def main(args: List[str]) -> bool:
     namespace = parse_args(args)
 
     loglevel = logging.INFO
@@ -425,13 +438,19 @@ def main(args):
         logging.error("Please specify a valid command! Use '--help' for commands.")
         return False
 
+    # mypy check
+    if getattr(namespace, "mypy", False):
+        subprocess.check_call(["mypy", "--strict", THIS_SCRIPT])
+        return True
+
     # entry
     meta = MoisMeta()
 
-    meta.specs = load_specs()
-    if meta.specs is None:
+    specs = load_specs()
+    if specs is None:
         logging.error("Reading specs failed!")
         return False
+    meta.specs = specs
 
     meta.dry_run = not getattr(namespace, "do", False)
 
@@ -444,7 +463,11 @@ def main(args):
         meta.machine = socket.gethostname()
 
     logging.debug("Loading machine %s...", meta.machine)
-    meta.filelist = load_filelist(meta.machine, meta.specs)
+    filelist = load_filelist(meta.machine, meta.specs)
+    if filelist is None:
+        logging.error("Reading filelist failed!")
+        return False
+    meta.filelist = filelist
 
     if getattr(namespace, "status", False):
         return run_status(meta.filelist)
