@@ -341,28 +341,36 @@ def run_apply(filelist: MoisMeta.FileList, dry_run: bool, force: bool) -> bool:
             if status.status == FileStatus.Status.IDENTICAL:
                 continue
 
+            ps = pretty_print_path(status.source)
+            pt = pretty_print_path(status.target)
+
             confirm = True
             if status.status == FileStatus.Status.DIFFER:
                 if not (force or dry_run):
-                    logging.info(
-                        "%s: differ %s -> %s",
-                        package,
-                        pretty_print_path(status.source),
-                        pretty_print_path(status.target),
-                    )
-
+                    logging.info("%s: differ %s -> %s", package, ps, pt)
                     confirm = True if input("overwrite? [y/n]:") == "y" else False
 
             if confirm:
-                copies.append((package, status, status.source, status.target))
+                copies.append((package, status, ps, pt))
+
+    def unlink_broken(link: str, pretty: str):
+        if os.path.islink(link) and not os.path.exists(link):
+            logging.debug("Run: unlink %s", pretty)
+            os.unlink(link)
 
     for package, status, pretty_source, pretty_target in copies:
         # TODO: consider sudo
-        target_parent = os.path.dirname(status.target)
-        if not os.path.isdir(target_parent):
-            logging.info("Run: mkdir %s", target_parent)
-            if not dry_run:
+        if not dry_run:
+            target_parent = os.path.dirname(status.target)
+            if not os.path.isdir(target_parent):
+                pp = pretty_print_path(target_parent)
+                unlink_broken(target_parent, pp)
+
+                logging.debug("Run: mkdir %s", pp)
                 os.makedirs(target_parent)
+
+            # Try unlink broken symbolic links, which will cause the copy2 fails:
+            unlink_broken(status.target, pretty_target)
 
         logging.info("Run: cp %s -> %s", pretty_source, pretty_target)
         if not dry_run:
