@@ -4,5 +4,6 @@ branch = master
 target = ~/.local/share/kwin/scripts
 checkout = virtual-desktops-only-on-primary
 exclude = virtual-desktops-only-on-primary/CHANGELOG.md
+autoupdate = false
 rev = 42af940edc9e1dd3f21fdc45fb36c6b3a4ef847f
 

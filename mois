@@ -197,9 +197,11 @@ def nongit_update(path: str, config: Dict[str, str], dry_run: bool) -> bool:
     exclude = config.get("exclude", "").split()
     rev = config.get("rev", None)
 
-    # Prepare workdir, TODO: dry_run?
-    if not os.path.isdir(workdir):
-        os.makedirs(workdir)
+    # Prepare workdir, clean it up, TODO: dry_run?
+    if not dry_run and os.path.isdir(workdir):
+        logging.debug("Removing workdir %s", path)
+        shutil.rmtree(workdir)
+    os.makedirs(workdir, exist_ok=True)
 
     def git(dry_run: bool, *args: str) -> bytes:
         if dry_run:
@@ -254,7 +256,7 @@ def get_nongit_name(key: str) -> Optional[str]:
     return key.split("/", 1)[-1]
 
 
-def run_nongit(specs: MoisMeta.Specs, dry_run: bool) -> bool:
+def run_nongit(specs: MoisMeta.Specs, dry_run: bool, is_all: bool) -> bool:
     pkgconfig: ConfigParser
 
     for package, (spec, pkgconfig) in specs.items():
@@ -263,6 +265,14 @@ def run_nongit(specs: MoisMeta.Specs, dry_run: bool) -> bool:
             name = get_nongit_name(section)
             if name is None:
                 continue
+
+            if not (
+                is_all or pkgconfig.getboolean(section, "autoupdate", fallback=True)
+            ):
+                # Autoupdate seems disabled, check if "rev" is ready:
+                if pkgconfig.has_option(section, "rev"):
+                    logging.info("Skip nongit %s/%s", package, name)
+                    continue
 
             logging.info("Running nongit for %s/%s...", package, name)
             config = dict(pkgconfig.items(section))
@@ -419,6 +429,11 @@ def parse_args(args: List[str]) -> argparse.Namespace:
     parser_status = subparsers.add_parser("pull")
     parser_status.set_defaults(op=True, nongit=True)
     parser_status.add_argument("--do", help="do it, for real", action="store_true")
+    parser_status.add_argument(
+        "--all",
+        help="upgrade the non-autoupdate repositories as well",
+        action="store_true",
+    )
 
     # mypy
     parser_mypy = subparsers.add_parser("mypy")
@@ -458,7 +473,8 @@ def main(args: List[str]) -> bool:
 
     if getattr(namespace, "nongit", False):
         # Fast-path to avoid loading the machine:
-        return run_nongit(meta.specs, meta.dry_run)
+        is_all = getattr(namespace, "all", False)
+        return run_nongit(meta.specs, meta.dry_run, is_all)
 
     meta.machine = namespace.machine
     if meta.machine is None:
