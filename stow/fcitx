@@ -3,5 +3,5 @@ repo = https://github.com/iDvel/rime-ice.git
 branch = main
 target = ~/.local/share/fcitx5/rime
 exclude = others .github .gitignore README.md
-rev = ea74e40bec2bd6580fa8d807075cd107739ba6cd
+rev = 06074ecb7b6d39a2fb9dbe83c9fa2bd9e5472991
 
