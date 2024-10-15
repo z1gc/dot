@@ -19,6 +19,7 @@ from typing import List, Dict, DefaultDict, Optional, Tuple
 from collections import defaultdict
 import filecmp
 import subprocess
+from glob import glob
 
 
 def should_log_debug() -> bool:
@@ -194,8 +195,15 @@ def nongit_update(path: str, config: Dict[str, str], dry_run: bool) -> bool:
     repo = config["repo"]
     branch = config["branch"]
     checkout = config.get("checkout", "").split()
+    build = config.get("build", "")
     exclude = config.get("exclude", "").split()
+    include = set(config.get("include", "").split())
     rev = config.get("rev", None)
+
+    # Sanity check:
+    if len(exclude) != 0 and len(include) != 0:
+        logging.error("Cannot have both exclude or include specified!")
+        return False
 
     # Directory should be exists for simplification, TODO: dry-run?
     os.makedirs(workdir, exist_ok=True)
@@ -221,8 +229,10 @@ def nongit_update(path: str, config: Dict[str, str], dry_run: bool) -> bool:
 
     # Prepare workdir, clean it up firstly, TODO: error recover?
     if not dry_run and os.path.isdir(workdir):
-        logging.info("Removing workdir %s", path)
+        # TODO: re-implement...
+        logging.debug("Removing workdir %s", path)
         shutil.rmtree(workdir)
+        os.makedirs(workdir, exist_ok=True)
 
     # A dumb way to update, as git-r3 in gentoo:
     git(dry_run, "init")
@@ -234,16 +244,35 @@ def nongit_update(path: str, config: Dict[str, str], dry_run: bool) -> bool:
     git(dry_run, "checkout", "FETCH_HEAD", *args)
     logging.info("Nongit: %s at %s", workdir, head)
 
-    # Clean the excluded files, if any:
-    for path in exclude:
-        fullpath = os.path.join(workdir, path)
+    # Run the build hook if provided:
+    if build != "":
+        logging.info("Build: %s", build)
+        if not dry_run:
+            subprocess.check_call(build, shell=True, cwd=workdir)
 
+    def remove_file_or_directory(path: str) -> None:
+        # FIXME: If dry_run, we're hard to make it here:
         if dry_run:
-            logging.info("Run: rm %s", fullpath)
-        elif os.path.isfile(fullpath):
-            os.unlink(fullpath)
+            logging.info("Run: rm %s", path)
+        elif os.path.isfile(path):
+            os.unlink(path)
         else:
-            shutil.rmtree(os.path.join(workdir, path))
+            shutil.rmtree(path)
+
+    if len(exclude) != 0:
+        # Clean the excluded files, if any:
+        for path in exclude:
+            fullpath = os.path.join(workdir, path)
+            remove_file_or_directory(fullpath)
+    elif len(include) != 0:
+        # Special handling for .git directories:
+        include.add(".git")
+
+        # Keep only the includes, remove all other files, TODO: os.walk?
+        for path in glob(f"{workdir}/*", include_hidden=True):
+            relative = path.removeprefix(workdir)[1:]
+            if relative not in include:
+                remove_file_or_directory(path)
 
     # Clear the '.git' directory we don't want:
     if not dry_run:
@@ -291,7 +320,7 @@ def run_nongit(specs: MoisMeta.Specs, dry_run: bool, is_all: bool) -> bool:
     return True
 
 
-def run_status(filelist: MoisMeta.FileList) -> bool:
+def run_status(filelist: MoisMeta.FileList, reverse: bool) -> bool:
     """
     Input: meta.packages
     """
@@ -299,8 +328,13 @@ def run_status(filelist: MoisMeta.FileList) -> bool:
     # TODO: Python missing the flatten...
     for package, files in filelist.items():
         for status in files:
-            ps = pretty_print_path(status.source)
-            pt = pretty_print_path(status.target)
+            if reverse:
+                source, target = status.target, status.source
+            else:
+                source, target = status.source, status.target
+
+            ps = pretty_print_path(source)
+            pt = pretty_print_path(target)
 
             match status.status:
                 case FileStatus.Status.IDENTICAL:
@@ -313,9 +347,7 @@ def run_status(filelist: MoisMeta.FileList) -> bool:
                     logging.info("%s: differ %s -> %s", package, ps, pt)
 
                     # TODO: Use python library instead:
-                    subprocess.call(
-                        ["diff", "-u7", "--color", status.source, status.target]
-                    )
+                    subprocess.call(["diff", "-u7", "--color", source, target])
 
     return True
 
@@ -411,6 +443,9 @@ def parse_args(args: List[str]) -> argparse.Namespace:
     # status
     parser_status = subparsers.add_parser("status")
     parser_status.set_defaults(op=True, status=True)
+    parser_status.add_argument(
+        "-r", "--reverse", help="diff with reversed", action="store_true"
+    )
 
     # apply
     parser_apply = subparsers.add_parser("apply")
@@ -490,7 +525,7 @@ def main(args: List[str]) -> bool:
     meta.filelist = filelist
 
     if getattr(namespace, "status", False):
-        return run_status(meta.filelist)
+        return run_status(meta.filelist, namespace.reverse)
 
     if getattr(namespace, "add", False):
         return run_add(meta.filelist, namespace.files)

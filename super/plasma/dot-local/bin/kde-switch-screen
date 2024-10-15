@@ -1,0 +1,19 @@
+#!/bin/bash
+
+set -eu
+
+case "$1" in
+  "prev")
+    screen="Switch to Previous Screen"
+  ;;
+  "next")
+    screen="Switch to Next Screen"
+  ;;
+  *)
+  exit 1
+  ;;
+esac
+
+# qdbus6 org.kde.kglobalaccel /component/kwin org.kde.kglobalaccel.Component.shortcutNames
+qdbus6 org.kde.kglobalaccel /component/kwin org.kde.kglobalaccel.Component.invokeShortcut "$screen"
+qdbus6 org.kde.kglobalaccel /component/kwin org.kde.kglobalaccel.Component.invokeShortcut MoveMouseToCenter
