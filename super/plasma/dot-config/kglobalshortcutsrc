@@ -1,7 +1,6 @@
 [ActivityManager]
-_k_friendly_name=系统设置
-switch-to-activity-8b489770-987d-45ae-a70e-ffdb5dfb3ef3=none,none,切换到活动“Default”
-switch-to-activity-fe48ea83-9b65-4850-aac3-1f6db91198bd=,none,切换到活动“默认”
+_k_friendly_name=活动管理器
+switch-to-activity-fe48ea83-9b65-4850-aac3-1f6db91198bd=none,none,切换到活动“默认”
 
 [KDE Keyboard Layout Switcher]
 Switch keyboard layout to 汉语=none,none,切换键盘布局为 汉语
@@ -33,14 +32,14 @@ mute=Volume Mute,Volume Mute,静音
 
 [ksmserver]
 Halt Without Confirmation=none,,关机 (无需确认)
-Lock Session=Meta+Pause,Meta+L\tScreensaver,Lock Session
+Lock Session=Meta+Pause,Meta+L\tScreensaver,锁定会话
 Log Out=Ctrl+Alt+Del,Ctrl+Alt+Del,显示注销屏幕
 Log Out Without Confirmation=none,,注销 (无需确认)
 LogOut=none,,注销
 Reboot=none,,重启
 Reboot Without Confirmation=none,,重启 (无需确认)
 Shut Down=none,,关机
-_k_friendly_name=Session Management
+_k_friendly_name=会话管理
 
 [kwin]
 Activate Window Demanding Attention=none,Meta+Ctrl+A,激活请求注意的窗口
@@ -56,7 +55,7 @@ Grid View=Meta+G,Meta+G,切换网格视图
 Increase Opacity=none,,提高活动窗口不透明度 5%
 Kill Window=Meta+Ctrl+Backspace,Meta+Ctrl+Esc,强制终止窗口
 KrohnkiteBTreeLayout=none,none,Krohnkite: BTree Layout
-KrohnkiteColumnsLayout=,none,Krohnkite: Columns Layout
+KrohnkiteColumnsLayout=none,none,Krohnkite: Columns Layout
 KrohnkiteDecrease=Meta+D,none,Krohnkite: Decrease
 KrohnkiteFloatAll=none,none,Krohnkite: Toggle Float All
 KrohnkiteFloatingLayout=Meta+Q,none,Krohnkite: Floating Layout
@@ -68,7 +67,7 @@ KrohnkiteFocusRight=Meta+L,none,Krohnkite: Focus Right
 KrohnkiteFocusUp=Meta+K,none,Krohnkite: Focus Up
 KrohnkiteGrowHeight=Meta+Ctrl+K,none,Krohnkite: Grow Height
 KrohnkiteIncrease=Meta+I,none,Krohnkite: Increase
-KrohnkiteMonocleLayout=,none,Krohnkite: Monocle Layout
+KrohnkiteMonocleLayout=none,none,Krohnkite: Monocle Layout
 KrohnkiteNextLayout=Meta+\\\\,none,Krohnkite: Next Layout
 KrohnkitePreviousLayout=Meta+=,none,Krohnkite: Previous Layout
 KrohnkiteQuarterLayout=Meta+Ctrl+4,none,Krohnkite: Quarter Layout
@@ -84,7 +83,7 @@ KrohnkiteShrinkWidth=Meta+Ctrl+H,none,Krohnkite: Shrink Width
 KrohnkiteSpiralLayout=Meta+Ctrl+5,none,Krohnkite: Spiral Layout
 KrohnkiteSpreadLayout=Meta+Ctrl+2,none,Krohnkite: Spread Layout
 KrohnkiteStackedLayout=none,none,Krohnkite: Stacked Layout
-KrohnkiteStairLayout=,none,Krohnkite: Stair Layout
+KrohnkiteStairLayout=none,none,Krohnkite: Stair Layout
 KrohnkiteTileLayout=Meta+Ctrl+0,none,Krohnkite: Tile Layout
 KrohnkiteToggleFloat=Meta+T,none,Krohnkite: Toggle Float
 KrohnkiteTreeColumnLayout=Meta+Ctrl+3,none,Krohnkite: Tree Column Layout
@@ -100,7 +99,7 @@ Overview=none,Meta+W,显示/隐藏桌面总览
 Setup Window Shortcut=none,,设置窗口快捷键
 Show Desktop=none,Meta+D,暂时显示桌面
 Switch One Desktop Down=Meta+N,Meta+Ctrl+Down,切换到下方桌面
-Switch One Desktop Up=,Meta+Ctrl+Up,切换到上方桌面
+Switch One Desktop Up=none,Meta+Ctrl+Up,切换到上方桌面
 Switch One Desktop to the Left=Meta+B,Meta+Ctrl+Left,切换到左侧桌面
 Switch One Desktop to the Right=Meta+F,Meta+Ctrl+Right,切换到右侧桌面
 Switch Window Down=none,Meta+Alt+Down,切换到下面的窗口
@@ -255,7 +254,7 @@ PowerOff=Power Off,Power Off,关机
 Sleep=Sleep,Sleep,挂起
 Toggle Keyboard Backlight=Keyboard Light On/Off,Keyboard Light On/Off,开关键盘背光
 Turn Off Screen=none,none,关闭屏幕
-_k_friendly_name=KDE 电源管理系统
+_k_friendly_name=电源管理
 powerProfile=Battery,Battery\tMeta+B,切换电源管理方案
 
 [plasmashell]
@@ -271,7 +270,7 @@ activate task manager entry 6=none,Meta+6,激活任务管理器条目 6
 activate task manager entry 7=none,Meta+7,激活任务管理器条目 7
 activate task manager entry 8=none,Meta+8,激活任务管理器条目 8
 activate task manager entry 9=none,Meta+9,激活任务管理器条目 9
-activate widget 388=,none,激活 图标和文本任务管理器 挂件
+activate widget 388=none,none,激活 图标和文本任务管理器 挂件
 activate widget 390=none,none,激活 虚拟桌面切换器 挂件
 clear-history=none,,清除剪贴板历史(L)
 clipboard_action=Meta+Ctrl+X,Meta+Ctrl+X,自动弹出操作菜单
@@ -290,14 +289,14 @@ switch to next activity=none,,切换到下一个活动
 switch to previous activity=none,,切换到上一个活动
 toggle do not disturb=none,,切换勿扰模式
 
+[services][kde-panel-hide.desktop]
+_launch=Meta
+
 [services][kde-switch-screen-next.desktop]
 _launch=Meta+.
 
 [services][kde-switch-screen-prev.desktop]
 _launch=Meta+,
-
-[services][kde-panel-hide.desktop]
-_launch=Meta
 
 [services][org.kde.konsole.desktop]
 _launch=Meta+Return
