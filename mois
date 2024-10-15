@@ -197,10 +197,7 @@ def nongit_update(path: str, config: Dict[str, str], dry_run: bool) -> bool:
     exclude = config.get("exclude", "").split()
     rev = config.get("rev", None)
 
-    # Prepare workdir, clean it up, TODO: dry_run?
-    if not dry_run and os.path.isdir(workdir):
-        logging.debug("Removing workdir %s", path)
-        shutil.rmtree(workdir)
+    # Directory should be exists for simplification, TODO: dry-run?
     os.makedirs(workdir, exist_ok=True)
 
     def git(dry_run: bool, *args: str) -> bytes:
@@ -221,6 +218,11 @@ def nongit_update(path: str, config: Dict[str, str], dry_run: bool) -> bool:
         logging.info("Already up-to-date, skipped.")
         return True
     config["rev"] = head
+
+    # Prepare workdir, clean it up firstly, TODO: error recover?
+    if not dry_run and os.path.isdir(workdir):
+        logging.info("Removing workdir %s", path)
+        shutil.rmtree(workdir)
 
     # A dumb way to update, as git-r3 in gentoo:
     git(dry_run, "init")

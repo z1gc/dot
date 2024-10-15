@@ -7,3 +7,10 @@ exclude = virtual-desktops-only-on-primary/CHANGELOG.md
 autoupdate = false
 rev = 42af940edc9e1dd3f21fdc45fb36c6b3a4ef847f
 
+[nongit/p6-owac]
+repo = https://github.com/MagiusCHE/p6-owac.git
+branch = main
+target = ~/.local/share/kwin/scripts/openwindowonactivescreen
+checkout = contents metadata.json
+rev = ace1c1ea347fdcb0da2989d0927d346084a991ab
+

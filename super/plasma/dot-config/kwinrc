@@ -21,6 +21,7 @@ BorderActivateAll=3
 
 [Plugins]
 autotileEnabled=false
+openwindowonactivescreenEnabled=true
 virtual-desktops-only-on-primaryEnabled=true
 
 [Tiling]
