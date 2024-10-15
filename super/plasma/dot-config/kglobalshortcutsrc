@@ -1,5 +1,6 @@
 [ActivityManager]
 _k_friendly_name=活动管理器
+switch-to-activity-8b489770-987d-45ae-a70e-ffdb5dfb3ef3=none,none,切换到活动“Default”
 switch-to-activity-fe48ea83-9b65-4850-aac3-1f6db91198bd=none,none,切换到活动“默认”
 
 [KDE Keyboard Layout Switcher]
@@ -67,7 +68,7 @@ KrohnkiteFocusRight=Meta+L,none,Krohnkite: Focus Right
 KrohnkiteFocusUp=Meta+K,none,Krohnkite: Focus Up
 KrohnkiteGrowHeight=Meta+Ctrl+K,none,Krohnkite: Grow Height
 KrohnkiteIncrease=Meta+I,none,Krohnkite: Increase
-KrohnkiteMonocleLayout=none,none,Krohnkite: Monocle Layout
+KrohnkiteMonocleLayout=Meta+Ctrl+1,none,Krohnkite: Monocle Layout
 KrohnkiteNextLayout=Meta+\\\\,none,Krohnkite: Next Layout
 KrohnkitePreviousLayout=Meta+=,none,Krohnkite: Previous Layout
 KrohnkiteQuarterLayout=Meta+Ctrl+4,none,Krohnkite: Quarter Layout
@@ -99,7 +100,7 @@ Overview=none,Meta+W,显示/隐藏桌面总览
 Setup Window Shortcut=none,,设置窗口快捷键
 Show Desktop=none,Meta+D,暂时显示桌面
 Switch One Desktop Down=Meta+N,Meta+Ctrl+Down,切换到下方桌面
-Switch One Desktop Up=none,Meta+Ctrl+Up,切换到上方桌面
+Switch One Desktop Up=Meta+P,Meta+Ctrl+Up,切换到上方桌面
 Switch One Desktop to the Left=Meta+B,Meta+Ctrl+Left,切换到左侧桌面
 Switch One Desktop to the Right=Meta+F,Meta+Ctrl+Right,切换到右侧桌面
 Switch Window Down=none,Meta+Alt+Down,切换到下面的窗口
