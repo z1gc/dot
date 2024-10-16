@@ -20,5 +20,5 @@ branch = master
 build = make package && cp -av pkg/* .
 include = contents metadata.json
 target = ~/.local/share/kwin/scripts/krohnkite
-rev = 41b4cf10025c0135d29ccc9c151aa752aa8d605a
+rev = 5b1446dd0201e34eccc4cb931b80960daefccb7a
 

@@ -2,7 +2,7 @@
   "KPackageStructure": "KWin/Script",
   "KPlugin": {
     "Name": "Krohnkite",
-    "Description": "A dynamic tiling script for KWin (41b4cf1)",
+    "Description": "A dynamic tiling script for KWin (5b1446d)",
     "Icon": "dialog-tile-clones",
 
     "Authors": [

@@ -1988,6 +1988,20 @@ class ColumnLayout {
             return null;
         return this.renderedWindowsIds[winId + 1];
     }
+    getWindowIdOnRight(x) {
+        for (let i = 0; i < this.renderedWindowsIds.length; i++) {
+            if (x < this.renderedWindowsRects[i].center[0] + 10)
+                return this.renderedWindowsIds[i];
+        }
+        return null;
+    }
+    getWindowIdOnTop(y) {
+        for (let i = 0; i < this.renderedWindowsIds.length; i++) {
+            if (y < this.renderedWindowsRects[i].center[1] + 10)
+                return this.renderedWindowsIds[i];
+        }
+        return null;
+    }
     adjust(area, tiles, basis, delta) {
         let columnTiles = tiles.filter((t) => this.windowIds.has(t.id));
         this.parts.adjust(area, columnTiles, basis, delta);
@@ -2240,44 +2254,75 @@ class ColumnsLayout {
         }
     }
     toColumnWithBiggerIndex(ctx) {
-        let currentWindowId = this.getCurrentWinId(ctx);
-        let activeColumnId = this.getCurrentColumnId(currentWindowId);
-        if (currentWindowId === null ||
+        const currentWindow = ctx.currentWindow;
+        const currentWindowId = currentWindow !== null ? currentWindow.id : null;
+        const activeColumnId = this.getCurrentColumnId(currentWindowId);
+        if (currentWindow === null ||
+            currentWindowId === null ||
             activeColumnId === null ||
             (this.columns[activeColumnId].size < 2 &&
                 (this.columns[activeColumnId].position === "right" ||
                     this.columns[activeColumnId].position === "single")))
             return false;
-        if (this.columns[activeColumnId].position === "single" ||
-            this.columns[activeColumnId].position === "right") {
-            let newColumn = this.insertColumn(false);
-            this.columns[activeColumnId].windowIds.delete(currentWindowId);
-            newColumn.windowIds.add(currentWindowId);
+        let targetColumn;
+        const column = this.columns[activeColumnId];
+        const center = column.renderedWindowsRects[column.renderedWindowsIds.indexOf(currentWindowId)].center;
+        column.windowIds.delete(currentWindowId);
+        if (column.position === "single" || column.position === "right") {
+            targetColumn = this.insertColumn(false);
+            targetColumn.windowIds.add(currentWindowId);
         }
         else {
-            this.columns[activeColumnId].windowIds.delete(currentWindowId);
-            this.columns[activeColumnId + 1].windowIds.add(currentWindowId);
+            targetColumn = this.columns[activeColumnId + 1];
+            targetColumn.windowIds.add(currentWindowId);
+        }
+        let idOnTarget;
+        if (this.direction.north || this.direction.south)
+            idOnTarget = targetColumn.getWindowIdOnRight(center[0]);
+        else
+            idOnTarget = targetColumn.getWindowIdOnTop(center[1]);
+        if (idOnTarget !== null)
+            ctx.moveWindowByWinId(currentWindow, idOnTarget);
+        else {
+            const targetId = targetColumn.renderedWindowsIds[targetColumn.renderedWindowsIds.length - 1];
+            ctx.moveWindowByWinId(currentWindow, targetId);
         }
         this.applyColumnsPosition();
         return true;
     }
     toColumnWithSmallerIndex(ctx) {
-        let currentWindowId = this.getCurrentWinId(ctx);
-        let activeColumnId = this.getCurrentColumnId(currentWindowId);
-        if (currentWindowId === null ||
+        const currentWindow = ctx.currentWindow;
+        const currentWindowId = currentWindow !== null ? currentWindow.id : null;
+        const activeColumnId = this.getCurrentColumnId(currentWindowId);
+        if (currentWindow === null ||
+            currentWindowId === null ||
             activeColumnId === null ||
             (this.columns[activeColumnId].windowIds.size < 2 &&
                 (this.columns[activeColumnId].position === "left" ||
                     this.columns[activeColumnId].position === "single")))
             return false;
-        this.columns[activeColumnId].windowIds.delete(currentWindowId);
-        if (this.columns[activeColumnId].position === "single" ||
-            this.columns[activeColumnId].position === "left") {
-            let column = this.insertColumn(true);
-            column.windowIds.add(currentWindowId);
+        let targetColumn;
+        const column = this.columns[activeColumnId];
+        const center = column.renderedWindowsRects[column.renderedWindowsIds.indexOf(currentWindowId)].center;
+        column.windowIds.delete(currentWindowId);
+        if (column.position === "single" || column.position === "left") {
+            targetColumn = this.insertColumn(true);
+            targetColumn.windowIds.add(currentWindowId);
         }
         else {
-            this.columns[activeColumnId - 1].windowIds.add(currentWindowId);
+            targetColumn = this.columns[activeColumnId - 1];
+            targetColumn.windowIds.add(currentWindowId);
+        }
+        let idOnTarget;
+        if (this.direction.north || this.direction.south)
+            idOnTarget = targetColumn.getWindowIdOnRight(center[0]);
+        else
+            idOnTarget = targetColumn.getWindowIdOnTop(center[1]);
+        if (idOnTarget !== null)
+            ctx.moveWindowByWinId(currentWindow, idOnTarget);
+        else {
+            const targetId = targetColumn.renderedWindowsIds[targetColumn.renderedWindowsIds.length - 1];
+            ctx.moveWindowByWinId(currentWindow, targetId);
         }
         this.applyColumnsPosition();
         return true;
