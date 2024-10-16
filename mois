@@ -26,12 +26,14 @@ def should_log_debug() -> bool:
     return logging.root.getEffectiveLevel() <= logging.DEBUG
 
 
+WHOAMI = f"{os.getuid()}:{os.getgid()}"
 HOME_DIR = os.path.expanduser("~")
 THIS_SCRIPT = os.path.realpath(__file__)
 WORKING_DIR = os.path.dirname(THIS_SCRIPT)
 PACKAGE_DIR = os.path.join(WORKING_DIR, "stow")
 MACHINE_DIR = os.path.join(WORKING_DIR, "machine")
 SOURCE_DIR = os.path.join(WORKING_DIR, "super")
+SYSTEM_SOURCE_DIR = os.path.join(WORKING_DIR, "root")
 NONGIT_DIR = os.path.join(WORKING_DIR, "party")
 
 
@@ -39,12 +41,15 @@ def pretty_print_path(source: str) -> str:
     """
     Input:
       global(SOURCE_DIR) for removeprefix
+      global(SYSTEM_SOURCE_DIR) for removeprefix
       global(NONGIT_DIR) for removeprefix
       global(HOME_DIR) for removeprefix
     """
 
     if source.startswith(SOURCE_DIR):
         return "S" + source.removeprefix(SOURCE_DIR)
+    elif source.startswith(SYSTEM_SOURCE_DIR):
+        return "R" + source.removeprefix(SYSTEM_SOURCE_DIR)
     elif source.startswith(NONGIT_DIR):
         return "P" + source.removeprefix(NONGIT_DIR)
     elif source.startswith(HOME_DIR):
@@ -59,7 +64,6 @@ class FileStatus:
         DIFFER = 1
         ONLY_LEFT = 2
 
-    filter: Optional[str]
     source: str
     target: str
     status: Status
@@ -165,6 +169,7 @@ def load_filelist(machine: str, specs: MoisMeta.Specs) -> Optional[MoisMeta.File
             # Load package itselfs:
             # TODO: resolve root target, e.g. '/etc'
             walk_files(os.path.join(SOURCE_DIR, package), HOME_DIR)
+            walk_files(os.path.join(SYSTEM_SOURCE_DIR, package), "/")
 
             # Load nongit dependencies:
             _, pkgconfig = specs[package]
@@ -352,6 +357,38 @@ def run_status(filelist: MoisMeta.FileList, reverse: bool) -> bool:
     return True
 
 
+def copy_harder(src: str, dst: str, chown: bool) -> bool:
+    if not os.path.isfile(src):
+        logging.error("Try to copy a thing that is not a file!")
+        return False
+
+    # Check if we need "sudo" really, if we can access both files:
+    should_sudo = True
+    if os.access(src, os.R_OK):
+        if os.path.exists(dst):
+            # The 'dst' can be directory:
+            if os.access(dst, os.W_OK):
+                should_sudo = False
+        elif os.access(os.path.dirname(dst), os.W_OK):
+            should_sudo = False
+
+    if not should_sudo:
+        shutil.copy2(src, dst)
+        return True
+
+    # Which side we need to be root, the non-root side should adjust the
+    #  permission back to the normal user:
+    extra = []
+    if chown:
+        extra = ["--chown", WHOAMI]
+
+    # We use sudo for now,
+    subprocess.check_call(
+        ["sudo", "rsync", "--no-dirs", "--acls", "--times", *extra, src, dst]
+    )
+    return True
+
+
 def run_add(filelist: MoisMeta.FileList, files_add: List[str]) -> bool:
     # To speed a little up, TODO: make filelist a set:
     files_set = set(files_add)
@@ -374,7 +411,8 @@ def run_add(filelist: MoisMeta.FileList, files_add: List[str]) -> bool:
             )
 
             # TODO: With dry_run:
-            shutil.copy2(status.target, status.source)
+            if not copy_harder(status.target, status.source, True):
+                return False
             files_set.remove(status.target)
 
     if len(files_set) != 0:
@@ -411,7 +449,6 @@ def run_apply(filelist: MoisMeta.FileList, dry_run: bool, force: bool) -> bool:
             os.unlink(link)
 
     for package, status, pretty_source, pretty_target in copies:
-        # TODO: consider sudo
         if not dry_run:
             target_parent = os.path.dirname(status.target)
             if not os.path.isdir(target_parent):
@@ -426,7 +463,8 @@ def run_apply(filelist: MoisMeta.FileList, dry_run: bool, force: bool) -> bool:
 
         logging.info("Run: cp %s -> %s", pretty_source, pretty_target)
         if not dry_run:
-            shutil.copy2(status.source, status.target)
+            if not copy_harder(status.source, status.target, False):
+                return False
 
     return True
 

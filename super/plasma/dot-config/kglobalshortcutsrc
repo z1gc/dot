@@ -260,7 +260,7 @@ powerProfile=Battery,Battery\tMeta+B,切换电源管理方案
 
 [plasmashell]
 _k_friendly_name=plasmashell
-activate application launcher=Alt+F1,Meta\tAlt+F1,激活应用程序启动器
+activate application launcher=Meta+`,Meta\tAlt+F1,激活应用程序启动器
 activate task manager entry 1=none,Meta+1,激活任务管理器条目 1
 activate task manager entry 10=none,Meta+0,激活任务管理器条目 10
 activate task manager entry 2=none,Meta+2,激活任务管理器条目 2
@@ -285,7 +285,7 @@ repeat_action=none,Meta+Ctrl+R,在当前剪贴板上手动执行操作
 show dashboard=Ctrl+F12,Ctrl+F12,显示桌面
 show-barcode=none,,显示条形码(S)…
 show-on-mouse-pos=Meta+V,Meta+V,在鼠标位置显示剪贴板项目
-stop current activity=Meta+S,Meta+S,停止当前活动
+stop current activity=none,Meta+S,停止当前活动
 switch to next activity=none,,切换到下一个活动
 switch to previous activity=none,,切换到上一个活动
 toggle do not disturb=none,,切换勿扰模式
