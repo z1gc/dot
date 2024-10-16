@@ -48,6 +48,7 @@
   </Menu>
   <Separator weakSeparator="1"/>
   <Separator weakSeparator="1"/>
+  <Separator weakSeparator="1"/>
   <Menu alreadyVisited="1" name="settings" noMerge="1">
    <text translationDomain="kxmlgui6">&amp;Settings</text>
    <DefineGroup name="session-settings"/>
@@ -87,10 +88,12 @@
   </Menu>
  </MenuBar>
  <ToolBar alreadyVisited="1" name="mainToolBar" noMerge="1">
-  <Action name="new-tab"/>
+  <Separator name="separator_0"/>
+  <Action name="new-window"/>
+  <Action name="bookmark"/>
+  <Action name="toggle-semantic-hints"/>
   <text translationDomain="kxmlgui6">Main Toolbar</text>
   <index>0</index>
-  <Action name="split-view"/>
  </ToolBar>
  <ActionProperties scheme="Default">
   <Action iconText="新建标签" name="new-tab" shortcut="Ctrl+Shift+T; Ctrl+0"/>
@@ -108,5 +111,6 @@
   <Action name="focus-view-below" shortcut="Ctrl+Shift+Down; Ctrl+J"/>
   <Action name="focus-view-left" shortcut="Ctrl+Shift+Left; Ctrl+H"/>
   <Action name="focus-view-right" shortcut="Ctrl+Shift+Right; Ctrl+L"/>
+  <Action iconText="位录" name="bookmark"/>
  </ActionProperties>
 </gui>

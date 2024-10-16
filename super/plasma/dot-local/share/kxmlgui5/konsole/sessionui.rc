@@ -70,10 +70,8 @@
   <text translationDomain="kxmlgui6">Main Toolbar</text>
   <Action name="file_print"/>
   <Action name="adjust-history"/>
-  <Separator name="separator_0" weakSeparator="1"/>
   <Action name="edit_copy"/>
   <Action name="edit_paste"/>
-  <Separator name="separator_1" weakSeparator="1"/>
   <Action name="edit_find"/>
   <Action name="edit_find_next"/>
   <Action name="edit_find_prev"/>
@@ -104,9 +102,9 @@
   <Action name="edit-current-profile"/>
  </Menu>
  <ToolBar name="sessionToolbar" noMerge="1">
+  <Spacer name="spacer_0"/>
   <text translationDomain="konsole">Session Toolbar</text>
   <index>1</index>
-  <Spacer name="spacer_0"/>
   <Action name="clear-history-and-reset"/>
   <Action name="view-readonly"/>
   <Action name="hamburger_menu"/>
@@ -119,5 +117,6 @@
   <Action name="edit_find_prev" priority="0"/>
   <Action name="view-readonly" priority="0"/>
   <Action iconText="截图" name="file_print"/>
+  <Action name="select-mode" shortcut="Ctrl+["/>
  </ActionProperties>
 </gui>

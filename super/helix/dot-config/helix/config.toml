@@ -13,6 +13,7 @@ hidden = true
 git-ignore = true
 
 [keys.normal]
+G = "goto_last_line" # or ge
 H = "goto_previous_buffer"  # or gp
 L = "goto_next_buffer"  # or gn
 A-j = ["extend_to_line_bounds", "delete_selection", "paste_after"]

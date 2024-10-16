@@ -3,6 +3,10 @@ MenuBar=Disabled
 [Desktop Entry]
 DefaultProfile=def.profile
 
+[FileDialogSize]
+2 screens: Height=720
+2 screens: Width=1280
+
 [General]
 ConfigVersion=1
 
@@ -11,6 +15,9 @@ ShowWindowTitleOnTitleBar=true
 
 [MainWindow]
 ToolBarsMovable=Disabled
+
+[Shortcut Schemes]
+Current Scheme=Default
 
 [SplitView]
 SplitViewVisibility=AlwaysHideSplitHeader
