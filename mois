@@ -329,7 +329,7 @@ def run_nongit(specs: MoisMeta.Specs, dry_run: bool, is_all: bool) -> bool:
     return True
 
 
-def run_status(filelist: MoisMeta.FileList, reverse: bool) -> bool:
+def run_status(filelist: MoisMeta.FileList, reverse: bool, brief: bool) -> bool:
     """
     Input: meta.packages
     """
@@ -350,13 +350,18 @@ def run_status(filelist: MoisMeta.FileList, reverse: bool) -> bool:
                     logging.debug("%s: identical %s == %s", package, ps, pt)
 
                 case FileStatus.Status.ONLY_LEFT:
-                    logging.info("%s: missing %s -> %s", package, ps, pt)
+                    if brief:
+                        logging.info("%s: missing %s", package, pt)
+                    else:
+                        logging.info("%s: missing %s -> %s", package, ps, pt)
 
                 case FileStatus.Status.DIFFER:
-                    logging.info("%s: differ %s -> %s", package, ps, pt)
-
-                    # TODO: Use python library instead:
-                    subprocess.call(["diff", "-u7", "--color", source, target])
+                    if brief:
+                        logging.info("%s: differ %s", package, pt)
+                    else:
+                        logging.info("%s: differ %s -> %s", package, ps, pt)
+                        # TODO: Use python library instead:
+                        subprocess.call(["diff", "-u7", "--color", source, target])
 
     return True
 
@@ -367,14 +372,22 @@ def copy_harder(src: str, dst: str, chown: bool) -> bool:
         return False
 
     # Check if we need "sudo" really, if we can access both files:
+    parent = os.path.dirname(dst)
     should_sudo = True
     if os.access(src, os.R_OK):
         if os.path.exists(dst):
             # The 'dst' can be directory:
             if os.access(dst, os.W_OK):
                 should_sudo = False
-        elif os.access(os.path.dirname(dst), os.W_OK):
+        elif os.access(parent, os.W_OK):
             should_sudo = False
+
+    # Ensure the target directory is exists:
+    try:
+        os.makedirs(parent, exist_ok=True)
+    except PermissionError:
+        assert should_sudo
+        subprocess.check_call(["sudo", "mkdir", "-p", parent])
 
     if not should_sudo:
         shutil.copy2(src, dst)
@@ -386,7 +399,8 @@ def copy_harder(src: str, dst: str, chown: bool) -> bool:
     if chown:
         extra = ["--chown", WHOAMI]
 
-    # We use sudo for now,
+    # We use sudo for now, if we're copying the files into mois, we may be here if
+    #  read permission of root is required:
     subprocess.check_call(
         ["sudo", "rsync", "--no-dirs", "--acls", "--times", *extra, src, dst]
     )
@@ -489,9 +503,6 @@ def run_apply(filelist: MoisMeta.FileList, dry_run: bool, force: bool) -> bool:
                 pp = pretty_print_path(target_parent)
                 unlink_broken(target_parent, pp)
 
-                logging.debug("Run: mkdir %s", pp)
-                os.makedirs(target_parent)
-
             # Try unlink broken symbolic links, which will cause the copy2 fails:
             unlink_broken(status.target, pretty_target)
 
@@ -515,6 +526,9 @@ def parse_args(args: List[str]) -> argparse.Namespace:
     parser_status.set_defaults(op=True, status=True)
     parser_status.add_argument(
         "-r", "--reverse", help="diff with reversed", action="store_true"
+    )
+    parser_status.add_argument(
+        "-b", "--brief", help="show less info", action="store_true"
     )
 
     # apply
@@ -602,7 +616,7 @@ def main(args: List[str]) -> bool:
     meta.filelist = filelist
 
     if getattr(namespace, "status", False):
-        return run_status(meta.filelist, namespace.reverse)
+        return run_status(meta.filelist, namespace.reverse, namespace.brief)
 
     if getattr(namespace, "add", False):
         package = namespace.package

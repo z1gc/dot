@@ -1,0 +1,5 @@
+root=/dev/nvme0n1p3
+rootfstype=btrfs
+rootflags=subvol=@
+lsm=capability,yama,integrity,landlock
+systemd.gpt_auto=0
