@@ -1,9 +1,3 @@
 [package]
-0 = fish
-1 = helix
-2 = tmux
-3 = npm
-4 = fcitx
-5 = plasma
-6 = idea
-7 = brave
+0 = devel
+1 = hypr

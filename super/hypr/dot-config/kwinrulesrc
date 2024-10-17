@@ -1,0 +1,14 @@
+[376fd8c5-82eb-4038-9ebe-99aec086b310]
+Description=XFreeRDP
+desktops=112bbe5c-0a4f-43a8-8395-2bb9897c5fdf
+desktopsrule=3
+maximizehoriz=true
+maximizehorizrule=4
+maximizevert=true
+maximizevertrule=4
+wmclass=xfreerdp
+wmclassmatch=1
+
+[General]
+count=1
+rules=376fd8c5-82eb-4038-9ebe-99aec086b310

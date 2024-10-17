@@ -26,31 +26,8 @@ abbr -a gd "git diff HEAD"
 
 # ripgrep, for helix you can use 'space-/' to search
 abbr -a ra "rg --hidden --no-ignore"
-alias re "$HOME/.dotfiles/party/rgfzf/rgfzf -mpde"
 
-# fzf_fish wrapper, make it as a normal function
-function fzf_commandline
-    argparse current-token replace 'function=' -- $argv
-
-    if set -q _flag_replace
-        echo $argv
-    else if not set -q _flag_function
-        echo $fzf_input
-    end
-end
-
-function fzf_run_wrapper
-    set -l func $argv[1]
-    set -g fzf_input $argv[2..]
-
-    # TODO: override the function in local? https://github.com/fish-shell/fish-shell/issues/1799
-    functions -c fzf_commandline commandline
-    $func
-    functions -e commandline
-end
-
-# fdfind
-function fzf_fast_switch
+function fish_fast_switch
     # abbr doesn't play very well with commandline...
     switch (commandline -t)
         case f
@@ -75,8 +52,9 @@ function fzf_fast_switch
     $func
 end
 
+# fdfind
 abbr -a fa "fd --hidden --no-ignore"
-bind --mode default ';' fzf_fast_switch # e.g. f;, h;, ...
+bind --mode default ';' fish_fast_switch # e.g. f;, h;, ...
 
 # cd-to-file
 functions -c cd fish_cd
@@ -89,5 +67,7 @@ function cd
     fish_cd $argv
 end
 
-# load state
+# state
+alias fss fish_state_save
+alias fsc fish_state_clear
 fish_state_load

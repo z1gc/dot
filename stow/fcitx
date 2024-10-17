@@ -1,7 +1,0 @@
-[nongit/rime-ice]
-repo = https://github.com/iDvel/rime-ice.git
-branch = main
-target = ~/.local/share/fcitx5/rime
-exclude = others .github .gitignore README.md
-rev = 87a7de47e92c124b7eda18fcd8e7fa3b9c42fa4e
-
