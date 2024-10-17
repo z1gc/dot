@@ -2,3 +2,7 @@ dev-python/darkdetect **
 dev-util/ruff ~amd64
 dev-lang/zig-bin ~amd64
 app-eselect/eselect-zig ~amd64
+
+dev-lang/ghc ~amd64
+dev-haskell/* ~amd64
+dev-util/shellcheck ~amd64
