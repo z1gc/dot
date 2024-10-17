@@ -88,3 +88,6 @@ function cd
     # to keep 'cdh, dirh, prevd, nextd' works
     fish_cd $argv
 end
+
+# load state
+fish_state_load

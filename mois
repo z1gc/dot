@@ -37,6 +37,12 @@ SYSTEM_SOURCE_DIR = os.path.join(WORKING_DIR, "root")
 NONGIT_DIR = os.path.join(WORKING_DIR, "party")
 
 
+def path_startswith(haystack: str, needle: str) -> bool:
+    if needle[-1] != "/":
+        needle += "/"
+    return haystack.startswith(needle)
+
+
 def pretty_print_path(source: str) -> str:
     """
     Input:
@@ -46,13 +52,13 @@ def pretty_print_path(source: str) -> str:
       global(HOME_DIR) for removeprefix
     """
 
-    if source.startswith(SOURCE_DIR):
+    if path_startswith(source, SOURCE_DIR):
         return "S" + source.removeprefix(SOURCE_DIR)
-    elif source.startswith(SYSTEM_SOURCE_DIR):
+    elif path_startswith(source, SYSTEM_SOURCE_DIR):
         return "R" + source.removeprefix(SYSTEM_SOURCE_DIR)
-    elif source.startswith(NONGIT_DIR):
+    elif path_startswith(source, NONGIT_DIR):
         return "P" + source.removeprefix(NONGIT_DIR)
-    elif source.startswith(HOME_DIR):
+    elif path_startswith(source, HOME_DIR):
         return "~" + source.removeprefix(HOME_DIR)
     else:
         return source
@@ -108,7 +114,6 @@ def load_specs() -> Optional[MoisMeta.Specs]:
 
     specs: MoisMeta.Specs = dict()
 
-    # TODO: USE flag like gentoo? It may needs redesign...
     for workdir, _, files in os.walk(PACKAGE_DIR):
         for package in files:
             if package in specs:
@@ -167,7 +172,6 @@ def load_filelist(machine: str, specs: MoisMeta.Specs) -> Optional[MoisMeta.File
                         file_status.append(FileStatus(left, right))
 
             # Load package itselfs:
-            # TODO: resolve root target, e.g. '/etc'
             walk_files(os.path.join(SOURCE_DIR, package), HOME_DIR)
             walk_files(os.path.join(SYSTEM_SOURCE_DIR, package), "/")
 
@@ -330,7 +334,7 @@ def run_status(filelist: MoisMeta.FileList, reverse: bool) -> bool:
     Input: meta.packages
     """
 
-    # TODO: Python missing the flatten...
+    # Python missing the flatten...
     for package, files in filelist.items():
         for status in files:
             if reverse:
@@ -389,20 +393,29 @@ def copy_harder(src: str, dst: str, chown: bool) -> bool:
     return True
 
 
-def run_add(filelist: MoisMeta.FileList, files_add: List[str]) -> bool:
-    # To speed a little up, TODO: make filelist a set:
-    files_set = set(files_add)
+def run_add(
+    filelist: MoisMeta.FileList,
+    files_add: List[str],
+    package_add: Optional[str],
+    dry_run: bool,
+) -> bool:
+    # To speed a little up:
+    files_set = set(map(lambda p: os.path.realpath(p), files_add))
 
     # TODO: Lazy load the filelist, only load for matched files:
     for package, files in filelist.items():
         for status in files:
+            # Can match either source or target:
+            if status.source in files_set:
+                files_set.remove(status.source)
+            elif status.target in files_set:
+                files_set.remove(status.target)
+            else:
+                continue
+
             if status.status != FileStatus.Status.DIFFER:
                 continue
 
-            if status.target not in files_set:
-                continue
-
-            # TODO: For non-existance package, we shall create one:
             logging.info(
                 "%s: add %s -> %s",
                 package,
@@ -410,15 +423,39 @@ def run_add(filelist: MoisMeta.FileList, files_add: List[str]) -> bool:
                 pretty_print_path(status.source),
             )
 
-            # TODO: With dry_run:
-            if not copy_harder(status.target, status.source, True):
-                return False
-            files_set.remove(status.target)
+            if not dry_run:
+                if not copy_harder(status.target, status.source, True):
+                    return False
 
-    if len(files_set) != 0:
-        for remain in files_set:
-            logging.warning("skip useless file: %s", remain)
-        return False
+    # In here, the files are brand new to us, create them:
+    if package_add is not None:
+        for source in files_set:
+            # Determine is SUPER or ROOT:
+            if path_startswith(source, HOME_DIR):
+                source_rel = source.removeprefix(HOME_DIR)
+                target = SOURCE_DIR
+            else:
+                source_rel = source
+                target = SYSTEM_SOURCE_DIR
+
+            # Replace '.' to 'dot-':
+            target += f"/{package_add}{source_rel}".replace("/.", "/dot-")
+
+            logging.info(
+                "%s: new %s -> %s",
+                package_add,
+                pretty_print_path(source),
+                pretty_print_path(target),
+            )
+
+            if not dry_run:
+                # TODO: Copy directory permissions (mode):
+                parent = os.path.dirname(target)
+                if not os.path.isdir(parent):
+                    os.makedirs(parent)
+
+                if not copy_harder(source, target, True):
+                    return False
 
     return True
 
@@ -476,8 +513,6 @@ def parse_args(args: List[str]) -> argparse.Namespace:
     parser.add_argument("-m", "--machine", help="specify machine", action="store")
     subparsers = parser.add_subparsers(help="how to cook")
 
-    # TODO: init/config/add/rm
-
     # status
     parser_status = subparsers.add_parser("status")
     parser_status.set_defaults(op=True, status=True)
@@ -496,6 +531,14 @@ def parse_args(args: List[str]) -> argparse.Namespace:
     # add
     parser_add = subparsers.add_parser("add")
     parser_add.set_defaults(op=True, add=True)
+    parser_add.add_argument("--do", help="do it, for real", action="store_true")
+    parser_add.add_argument(
+        "-p",
+        "--package",
+        help="package name (for new files)",
+        action="store",
+        default=None,
+    )
     parser_add.add_argument(
         "files", metavar="file", type=str, nargs="+", help="files to add"
     )
@@ -566,7 +609,7 @@ def main(args: List[str]) -> bool:
         return run_status(meta.filelist, namespace.reverse)
 
     if getattr(namespace, "add", False):
-        return run_add(meta.filelist, namespace.files)
+        return run_add(meta.filelist, namespace.files, namespace.package, meta.dry_run)
 
     meta.force = getattr(namespace, "force", False)
     if getattr(namespace, "apply", False):
