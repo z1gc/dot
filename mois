@@ -397,7 +397,6 @@ def run_add(
     filelist: MoisMeta.FileList,
     files_add: List[str],
     package_add: Optional[str],
-    dry_run: bool,
 ) -> bool:
     # To speed a little up:
     files_set = set(map(lambda p: os.path.realpath(p), files_add))
@@ -423,9 +422,8 @@ def run_add(
                 pretty_print_path(status.source),
             )
 
-            if not dry_run:
-                if not copy_harder(status.target, status.source, True):
-                    return False
+            if not copy_harder(status.target, status.source, True):
+                return False
 
     # In here, the files are brand new to us, create them:
     if package_add is not None:
@@ -448,14 +446,13 @@ def run_add(
                 pretty_print_path(target),
             )
 
-            if not dry_run:
-                # TODO: Copy directory permissions (mode):
-                parent = os.path.dirname(target)
-                if not os.path.isdir(parent):
-                    os.makedirs(parent)
+            # TODO: Copy directory permissions (mode):
+            parent = os.path.dirname(target)
+            if not os.path.isdir(parent):
+                os.makedirs(parent)
 
-                if not copy_harder(source, target, True):
-                    return False
+            if not copy_harder(source, target, True):
+                return False
 
     return True
 
@@ -531,7 +528,6 @@ def parse_args(args: List[str]) -> argparse.Namespace:
     # add
     parser_add = subparsers.add_parser("add")
     parser_add.set_defaults(op=True, add=True)
-    parser_add.add_argument("--do", help="do it, for real", action="store_true")
     parser_add.add_argument(
         "-p",
         "--package",
@@ -609,7 +605,10 @@ def main(args: List[str]) -> bool:
         return run_status(meta.filelist, namespace.reverse)
 
     if getattr(namespace, "add", False):
-        return run_add(meta.filelist, namespace.files, namespace.package, meta.dry_run)
+        package = namespace.package
+        if package is not None and package not in meta.specs:
+            logging.error("Invalid package %s is provided!", package)
+        return run_add(meta.filelist, namespace.files, package)
 
     meta.force = getattr(namespace, "force", False)
     if getattr(namespace, "apply", False):
