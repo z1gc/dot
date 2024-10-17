@@ -7,6 +7,9 @@ rulers = [80, 120]
 auto-format = false
 color-modes = true
 
+[editor.cursor-shape]
+insert = "bar"
+
 [editor.file-picker]
 # TODO: merge them into one single option?
 hidden = true
@@ -47,6 +50,7 @@ h = [":toggle file-picker.hidden", ":toggle file-picker.git-ignore"]
 a = ":toggle soft-wrap.enable"
 p = ":toggle auto-pairs"
 f = ":toggle auto-format"
+t = ":toggle smart-tab.enable"
 # will reset all configs to config-default
 "'" = ":config-reload"
 

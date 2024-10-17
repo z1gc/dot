@@ -67,6 +67,9 @@ function cd
     fish_cd $argv
 end
 
+# cursor
+set -g fish_cursor_default line
+
 # state
 alias fss fish_state_save
 alias fsc fish_state_clear
