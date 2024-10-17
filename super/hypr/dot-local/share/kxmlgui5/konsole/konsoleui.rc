@@ -96,7 +96,7 @@
   <index>0</index>
  </ToolBar>
  <ActionProperties scheme="Default">
-  <Action iconText="新建标签" name="new-tab" shortcut="Ctrl+Shift+T; Ctrl+0"/>
+  <Action iconText="新建标签" name="new-tab" shortcut="Ctrl+T; "/>
   <Action name="switch-to-tab-0" shortcut="Ctrl+1"/>
   <Action name="switch-to-tab-1" shortcut="Ctrl+2; "/>
   <Action name="switch-to-tab-2" shortcut="Ctrl+3"/>
@@ -110,7 +110,8 @@
   <Action name="focus-view-above" shortcut="Ctrl+Shift+Up; Ctrl+K"/>
   <Action name="focus-view-below" shortcut="Ctrl+Shift+Down; Ctrl+J"/>
   <Action name="focus-view-left" shortcut="Ctrl+Shift+Left; Ctrl+H"/>
-  <Action name="focus-view-right" shortcut="Ctrl+Shift+Right; Ctrl+L"/>
+  <Action name="focus-view-right" shortcut="Ctrl+Shift+Right; "/>
   <Action iconText="位录" name="bookmark"/>
+  <Action name="toggle-line-numbers" shortcut="Ctrl+L"/>
  </ActionProperties>
 </gui>
