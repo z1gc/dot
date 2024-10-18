@@ -6,6 +6,9 @@
 #       - For manage the "outside" files in the repo, it can be in network as well.
 #       - Git-compatible, can use tools like 'magit' to view diffs or resolve conflicts.
 #       - Support hooks.
+# TODO: History of 'apply', to resolve a problem that when you delete a file in
+#  the repository, mois won't know about that, and leaving a "trash" file in the
+#  target directory.
 
 import argparse
 import os
@@ -20,6 +23,7 @@ from collections import defaultdict
 import filecmp
 import subprocess
 from glob import glob
+import json
 
 
 def should_log_debug() -> bool:
@@ -30,6 +34,7 @@ WHOAMI = f"{os.getuid()}:{os.getgid()}"
 HOME_DIR = os.path.expanduser("~")
 THIS_SCRIPT = os.path.realpath(__file__)
 WORKING_DIR = os.path.dirname(THIS_SCRIPT)
+APPLY_HIST = os.path.join(WORKING_DIR, ".hist.json")
 PACKAGE_DIR = os.path.join(WORKING_DIR, "stow")
 MACHINE_DIR = os.path.join(WORKING_DIR, "machine")
 SOURCE_DIR = os.path.join(WORKING_DIR, "super")
@@ -38,8 +43,12 @@ NONGIT_DIR = os.path.join(WORKING_DIR, "party")
 
 
 def path_startswith(haystack: str, needle: str) -> bool:
+    if len(haystack) == len(needle):
+        return haystack == needle
+
     if needle[-1] != "/":
-        needle += "/"
+        return haystack.startswith(needle + "/")
+
     return haystack.startswith(needle)
 
 
@@ -69,14 +78,20 @@ class FileStatus:
         IDENTICAL = 0
         DIFFER = 1
         ONLY_LEFT = 2
+        ONLY_RIGHT = 3
 
     source: str
     target: str
     status: Status
 
-    def __init__(self, left: str, right: str):
+    def __init__(self, left: str, right: str, status: Optional[Status] = None):
         self.source = left
         self.target = right
+
+        if status is not None:
+            # TODO: Do not expose:
+            self.status = status
+            return
 
         # Should compare two files:
         left_exists = os.path.isfile(left)
@@ -94,17 +109,9 @@ class FileStatus:
 
 
 class MoisMeta:
-    machine: str
-
     # TODO: python3.12 introduces 'type' keyword:
     Specs = Dict[str, Tuple[str, ConfigParser]]
-    specs: Specs
-
     FileList = DefaultDict[str, List[FileStatus]]
-    filelist: FileList
-
-    dry_run: bool
-    force: bool
 
 
 def load_specs() -> Optional[MoisMeta.Specs]:
@@ -128,7 +135,9 @@ def load_specs() -> Optional[MoisMeta.Specs]:
     return specs
 
 
-def load_filelist(machine: str, specs: MoisMeta.Specs) -> Optional[MoisMeta.FileList]:
+def load_filelist(
+    machine: str, specs: MoisMeta.Specs, allow_root: bool
+) -> Optional[MoisMeta.FileList]:
     """
     Input:
       global(MACHINE_DIR) for ConfigParser
@@ -159,6 +168,9 @@ def load_filelist(machine: str, specs: MoisMeta.Specs) -> Optional[MoisMeta.File
             file_status: List[FileStatus] = filelist[package]
 
             def walk_files(source: str, target: str) -> None:
+                if path_startswith(target, "/root") and not allow_root:
+                    return
+
                 for workdir, dirs, files in os.walk(source):
                     # Only count for files:
                     for file in files:
@@ -347,13 +359,22 @@ def run_status(filelist: MoisMeta.FileList, reverse: bool, brief: bool) -> bool:
 
             match status.status:
                 case FileStatus.Status.IDENTICAL:
-                    logging.debug("%s: identical %s == %s", package, ps, pt)
+                    if brief:
+                        logging.debug("%s: identical %s", package, pt)
+                    else:
+                        logging.debug("%s: identical %s == %s", package, ps, pt)
 
                 case FileStatus.Status.ONLY_LEFT:
                     if brief:
                         logging.info("%s: missing %s", package, pt)
                     else:
                         logging.info("%s: missing %s -> %s", package, ps, pt)
+
+                case FileStatus.Status.ONLY_RIGHT:
+                    if brief:
+                        logging.warning("%s: missing %s", package, ps)
+                    else:
+                        logging.warning("%s: missing %s -> %s", package, ps, pt)
 
                 case FileStatus.Status.DIFFER:
                     if brief:
@@ -471,12 +492,22 @@ def run_add(
     return True
 
 
-def run_apply(filelist: MoisMeta.FileList, dry_run: bool, force: bool) -> bool:
+def run_apply(
+    filelist: MoisMeta.FileList,
+    dry_run: bool,
+    force: bool,
+    applied: Dict[str, Tuple[str, str]],
+) -> bool:
+    """
+    Output: applied
+    """
+
     copies = []
 
     for package, files in filelist.items():
         for status in files:
             if status.status == FileStatus.Status.IDENTICAL:
+                applied[status.target] = (package, status.source)
                 continue
 
             ps = pretty_print_path(status.source)
@@ -510,6 +541,7 @@ def run_apply(filelist: MoisMeta.FileList, dry_run: bool, force: bool) -> bool:
         if not dry_run:
             if not copy_harder(status.source, status.target, False):
                 return False
+            applied[status.target] = (package, status.source)
 
     return True
 
@@ -519,6 +551,9 @@ def parse_args(args: List[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(prog="mois", description="Like stow just.")
     parser.add_argument("-v", "--verbose", help="show debug logs", action="store_true")
     parser.add_argument("-m", "--machine", help="specify machine", action="store")
+    parser.add_argument(
+        "-r", "--root", help="allow /root to be used", action="store_true"
+    )
     subparsers = parser.add_subparsers(help="how to cook")
 
     # status
@@ -589,44 +624,66 @@ def main(args: List[str]) -> bool:
         return True
 
     # entry
-    meta = MoisMeta()
-
     specs = load_specs()
     if specs is None:
         logging.error("Reading specs failed!")
         return False
-    meta.specs = specs
 
-    meta.dry_run = not getattr(namespace, "do", False)
-
+    dry_run = not getattr(namespace, "do", False)
     if getattr(namespace, "nongit", False):
         # Fast-path to avoid loading the machine:
         is_all = getattr(namespace, "all", False)
-        return run_nongit(meta.specs, meta.dry_run, is_all)
+        return run_nongit(specs, dry_run, is_all)
 
-    meta.machine = namespace.machine
-    if meta.machine is None:
-        meta.machine = socket.gethostname()
+    machine = namespace.machine
+    if machine is None:
+        machine = socket.gethostname()
 
-    logging.debug("Loading machine %s...", meta.machine)
-    filelist = load_filelist(meta.machine, meta.specs)
+    # target -> (package, source)
+    applied: Dict[str, Tuple[str, str]]
+    if os.path.isfile(APPLY_HIST):
+        with open(APPLY_HIST, "r") as reader:
+            applied = json.load(reader)
+    else:
+        applied = dict()
+
+    logging.debug("Loading machine %s...", machine)
+    filelist = load_filelist(machine, specs, namespace.root)
     if filelist is None:
         logging.error("Reading filelist failed!")
         return False
-    meta.filelist = filelist
+
+    # Update the filelist, if we found the missing source file, we make it show:
+    for _, files in filelist.items():
+        for status in files:
+            try:
+                applied.pop(status.target)
+            except KeyError:
+                pass
+
+    # TODO: Can we cache the local repository like applied?
+    for target, (package, source) in applied.items():
+        # Items get lost:
+        filelist[package].append(
+            FileStatus(source, target, FileStatus.Status.ONLY_RIGHT)
+        )
 
     if getattr(namespace, "status", False):
-        return run_status(meta.filelist, namespace.reverse, namespace.brief)
+        return run_status(filelist, namespace.reverse, namespace.brief)
 
     if getattr(namespace, "add", False):
         package = namespace.package
-        if package is not None and package not in meta.specs:
+        if package is not None and package not in specs:
             logging.error("Invalid package %s is provided!", package)
-        return run_add(meta.filelist, namespace.files, package)
+        return run_add(filelist, namespace.files, package)
 
-    meta.force = getattr(namespace, "force", False)
     if getattr(namespace, "apply", False):
-        return run_apply(meta.filelist, meta.dry_run, meta.force)
+        if run_apply(filelist, dry_run, namespace.force, applied):
+            # TODO: To function, and add a 'rm' command:
+            with open(APPLY_HIST, "w") as writer:
+                json.dump(applied, writer, indent=1)
+            return True
+        return False
 
     logging.error("Why here? What's wrong?")
     return False
