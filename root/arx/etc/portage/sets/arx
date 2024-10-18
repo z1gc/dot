@@ -1,0 +1,4 @@
+media-libs/nvidia-vaapi-driver
+sys-firmware/lenovolegionlinux
+net-wireless/iw
+net-wireless/wpa_supplicant
