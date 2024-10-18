@@ -21,6 +21,7 @@
 #/dev/cdrom		/mnt/cdrom	auto		noauto,ro	0 0
 
 # root is also mounted via /etc/kernel/cmdline, we have no initramfs (flavor)
+# Note: both '@', '@snapshots' and '@home' have the toppest parent (subvolid=5).
 /dev/nvme0n1p3	/			btrfs		subvol=@		0 1
 /dev/nvme0n1p3	/.snapshots	btrfs		subvol=@snapshots	0 1
 /dev/nvme0n1p3	/home		btrfs		subvol=@home	0 1

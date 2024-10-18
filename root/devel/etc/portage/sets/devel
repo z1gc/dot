@@ -1,25 +1,39 @@
-app-admin/sudo
-app-containers/distrobox
-app-containers/docker
-app-containers/docker-cli
-app-editors/helix
+# Kernel:
+# Merge linux-firmware before the kernel, for buildin ucode support:
+sys-kernel/linux-firmware
+sys-kernel/gentoo-kernel
+sys-kernel/installkernel
+
+# Core system:
+sys-apps/systemd
+sys-fs/btrfs-progs
+
+# Language tools:
+sys-devel/clang
+dev-python/python-lsp-server
+dev-util/ruff
+
+# Portage:
 app-eselect/eselect-repository
-app-misc/fastfetch
 app-portage/gentoolkit
 app-portage/pycargoebuild
 app-portage/smart-live-rebuild
+dev-util/pkgdev
+
+# Shell:
+app-admin/sudo
+app-editors/helix
+app-misc/fastfetch
 app-shells/fish
 app-shells/fzf
-dev-debug/strace
-dev-python/python-lsp-server
-dev-util/pkgdev
-dev-util/ruff
+
+# SRE:
 sys-apps/fd
 sys-apps/ripgrep
-sys-apps/systemd
-sys-devel/clang
-sys-fs/btrfs-progs
-sys-kernel/gentoo-kernel
-sys-kernel/installkernel
-sys-kernel/linux-firmware
 sys-process/iotop-c
+dev-debug/strace
+
+# Container:
+app-containers/distrobox
+app-containers/docker
+app-containers/docker-cli

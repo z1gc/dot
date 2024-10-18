@@ -1,0 +1,30 @@
+# /etc/fstab: static file system information.
+#
+# See the manpage fstab(5) for more information.
+#
+# NOTE: The root filesystem should have a pass number of either 0 or 1.
+#       All other filesystems should have a pass number of 0 or greater than 1.
+#
+# NOTE: Even though we list ext4 as the type here, it will work with ext2/ext3
+#       filesystems.  This just tells the kernel to use the ext4 driver.
+#
+# NOTE: You can use full paths to devices like /dev/sda3, but it is often
+#       more reliable to use filesystem labels or UUIDs. See your filesystem
+#       documentation for details on setting a label. To obtain the UUID, use
+#       the blkid(8) command.
+
+# <fs>			<mountpoint>	<type>		<opts>		<dump> <pass>
+
+# Migrate from openSUSE, don't want to re-partition again...
+/dev/nvme0n1p2  /                       btrfs  subvol=@gentoo                      0  0
+# /dev/nvme0n1p2  /var                    btrfs  subvol=/@/var                 0  0
+# /dev/nvme0n1p2  /usr/local              btrfs  subvol=/@/usr/local           0  0
+# /dev/nvme0n1p2  /srv                    btrfs  subvol=/@/srv                 0  0
+# /dev/nvme0n1p2  /root                   btrfs  subvol=/@/root                0  0
+# /dev/nvme0n1p2  /opt                    btrfs  subvol=/@/opt                 0  0
+/dev/nvme0n1p2  /home                   btrfs  subvol=@gentoo/home                0  0
+# /dev/nvme0n1p2  /boot/grub2/x86_64-efi  btrfs  subvol=/@/boot/grub2/x86_64-efi  0  0
+# /dev/nvme0n1p2  /boot/grub2/i386-pc     btrfs  subvol=/@/boot/grub2/i386-pc  0  0
+# /dev/nvme0n1p2  /.snapshots             btrfs  subvol=/@/.snapshots          0  0
+/dev/nvme0n1p1  /boot/efi               vfat   utf8,codepage=936             0  2
+/dev/nvme0n1p3  none                    swap   defaults                      0  0

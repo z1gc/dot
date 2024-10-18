@@ -2,4 +2,5 @@
 0 = workstation
 
 [package]
-0 = ebm
+0 = venus
+1 = ebm

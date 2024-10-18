@@ -1,19 +1,28 @@
-app-emulation/virt-manager
+# Locale:
 app-i18n/fcitx-configtool
 app-i18n/fcitx-rime
-app-office/libreoffice-bin
-gui-apps/wl-clipboard
-kde-apps/dolphin
-kde-apps/kate
-kde-apps/konsole
-kde-apps/okular
-kde-plasma/plasma-meta
 media-fonts/noto
 media-fonts/sarasa-gothic
 media-fonts/source-han-sans
 media-fonts/wqy-microhei
 media-fonts/wqy-zenhei
+
+# Plasma & Wayland:
+kde-plasma/plasma-meta
+gui-apps/wl-clipboard
+kde-apps/dolphin
+kde-apps/kate
+kde-apps/konsole
+kde-apps/okular
+x11-misc/ly
+
+# Media:
 media-libs/libpulse
 media-video/pipewire
+
+# Production:
+app-office/libreoffice-bin
 www-client/brave-bin
-x11-misc/ly
+
+# Virtualization:
+app-emulation/virt-manager
