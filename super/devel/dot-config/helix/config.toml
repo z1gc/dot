@@ -53,6 +53,7 @@ f = ":toggle auto-format"
 t = ":toggle smart-tab.enable"
 # will reset all configs to config-default
 "'" = ":config-reload"
+m = ":format-write"
 
 [keys.normal.","]
 "," = "collapse_selection"

@@ -1,0 +1,6 @@
+kde-plasma/plasma-meta -display-manager -sddm
+kde-apps/okular epub mobi markdown
+kde-apps/kio-extras samba
+net-misc/spice-gtk usbredir
+media-fonts/noto
+app-i18n/fcitx-configtool kcm

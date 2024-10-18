@@ -1,8 +1,0 @@
-kde-plasma/plasma-meta -display-manager -sddm
-app-containers/docker btrfs overlay
-app-containers/containerd btrfs
-kde-apps/okular djvu epub mobi markdown
-kde-apps/kio-extras samba
-net-misc/spice-gtk usbredir
-net-dns/dnsmasq script
-net-libs/gnutls tools pkcs11

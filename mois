@@ -554,6 +554,9 @@ def parse_args(args: List[str]) -> argparse.Namespace:
     parser.add_argument(
         "-r", "--root", help="allow /root to be used", action="store_true"
     )
+    parser.add_argument(
+        "-d", "--validate", help="validate the repository", action="store_true"
+    )
     subparsers = parser.add_subparsers(help="how to cook")
 
     # status
@@ -652,6 +655,15 @@ def main(args: List[str]) -> bool:
     if filelist is None:
         logging.error("Reading filelist failed!")
         return False
+
+    if namespace.validate:
+        targets = set()
+        for _, files in filelist.items():
+            for status in files:
+                if status.target in targets:
+                    logging.error("Duplicate file found!")
+                    return False
+                targets.add(status.target)
 
     # Update the filelist, if we found the missing source file, we make it show:
     for _, files in filelist.items():
