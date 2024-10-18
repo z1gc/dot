@@ -1,9 +1,6 @@
-dev-python/darkdetect **
+dev-python/darkdetect ~amd64
 dev-util/ruff ~amd64
 dev-lang/zig-bin ~amd64
 app-eselect/eselect-zig ~amd64
 app-editors/helix **
-
-dev-lang/ghc ~amd64
-dev-haskell/* ~amd64
-dev-util/shellcheck ~amd64
+dev-util/bash-language-server ~amd64

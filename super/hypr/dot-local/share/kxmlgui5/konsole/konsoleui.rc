@@ -49,6 +49,7 @@
   <Separator weakSeparator="1"/>
   <Separator weakSeparator="1"/>
   <Separator weakSeparator="1"/>
+  <Separator weakSeparator="1"/>
   <Menu alreadyVisited="1" name="settings" noMerge="1">
    <text translationDomain="kxmlgui6">&amp;Settings</text>
    <DefineGroup name="session-settings"/>
@@ -111,7 +112,8 @@
   <Action name="focus-view-below" shortcut="Ctrl+Shift+Down; Ctrl+J"/>
   <Action name="focus-view-left" shortcut="Ctrl+Shift+Left; Ctrl+H"/>
   <Action name="focus-view-right" shortcut="Ctrl+Shift+Right; "/>
-  <Action iconText="位录" name="bookmark"/>
+  <Action icon="bookmarks" iconText="位录" name="bookmark"/>
   <Action name="toggle-line-numbers" shortcut="Ctrl+L"/>
+  <Action iconText="新窗口" name="new-window"/>
  </ActionProperties>
 </gui>

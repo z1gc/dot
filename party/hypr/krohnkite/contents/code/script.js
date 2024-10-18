@@ -69,6 +69,7 @@ class KWinConfig {
         this.maximizeSoleTile = KWIN.readConfig("maximizeSoleTile", false);
         this.tileLayoutInitialAngle = KWIN.readConfig("tileLayoutInitialRotationAngle", "0");
         this.columnsLayoutInitialAngle = KWIN.readConfig("columnsLayoutInitialRotationAngle", "0");
+        this.columnsBalanced = KWIN.readConfig("columnsBalanced", false);
         this.monocleMaximize = KWIN.readConfig("monocleMaximize", true);
         this.monocleMinimizeRest = KWIN.readConfig("monocleMinimizeRest", false);
         this.stairReverse = KWIN.readConfig("stairReverse", false);
@@ -2181,7 +2182,7 @@ class ColumnsLayout {
     arrangeTileables(ctx, tileables) {
         let latestTimestamp = 0;
         let partId = null;
-        let newWindows = new Set();
+        let newWindows = [];
         let tileableIds = new Set();
         let currentColumnId = 0;
         tileables.forEach((tileable) => {
@@ -2197,14 +2198,24 @@ class ColumnsLayout {
                 }
             }
             else {
-                newWindows.add(tileable.id);
+                newWindows.push(tileable.id);
             }
             tileableIds.add(tileable.id);
         });
-        this.parts[currentColumnId].windowIds = new Set([
-            ...this.parts[currentColumnId].windowIds,
-            ...newWindows,
-        ]);
+        if (CONFIG.columnsBalanced) {
+            for (var [_, id] of newWindows.entries()) {
+                let minSizeColumn = this.parts.reduce((prev, curr) => {
+                    return prev.size < curr.size ? prev : curr;
+                });
+                minSizeColumn.windowIds.add(id);
+            }
+        }
+        else {
+            this.parts[currentColumnId].windowIds = new Set([
+                ...this.parts[currentColumnId].windowIds,
+                ...newWindows,
+            ]);
+        }
         this.parts.forEach((column) => {
             column.actualizeWindowIds(ctx, tileableIds);
         });
@@ -2226,9 +2237,6 @@ class ColumnsLayout {
                 return i;
         }
         return null;
-    }
-    getCurrentWinId(ctx) {
-        return ctx.currentWindow === null ? null : ctx.currentWindow.id;
     }
     getCurrentColumnId(currentWindowId) {
         if (currentWindowId !== null) {

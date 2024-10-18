@@ -17,10 +17,10 @@ rev = ace1c1ea347fdcb0da2989d0927d346084a991ab
 [nongit/krohnkite]
 repo = https://github.com/anametologin/krohnkite.git
 branch = master
-build = make package && cp -av pkg/* .
+build = make SHELL=fish package && cp -av pkg/* .
 include = contents metadata.json
 target = ~/.local/share/kwin/scripts/krohnkite
-rev = 5b1446dd0201e34eccc4cb931b80960daefccb7a
+rev = fa10f8c1e5ba947e9dcac64cb28ad191995bccad
 
 [nongit/rime-ice]
 repo = https://github.com/iDvel/rime-ice.git
@@ -28,3 +28,4 @@ branch = main
 target = ~/.local/share/fcitx5/rime
 exclude = others .github .gitignore README.md
 rev = 87a7de47e92c124b7eda18fcd8e7fa3b9c42fa4e
+

@@ -400,15 +400,13 @@ def copy_harder(src: str, dst: str, chown: bool) -> bool:
             # The 'dst' can be directory:
             if os.access(dst, os.W_OK):
                 should_sudo = False
-        elif os.access(parent, os.W_OK):
-            should_sudo = False
-
-    # Ensure the target directory is exists:
-    try:
-        os.makedirs(parent, exist_ok=True)
-    except PermissionError:
-        assert should_sudo
-        subprocess.check_call(["sudo", "mkdir", "-p", parent])
+        else:
+            # Try to create the directory, if we can, we own the permissions:
+            try:
+                os.makedirs(parent)
+                should_sudo = False
+            except PermissionError:
+                subprocess.check_call(["sudo", "mkdir", "-p", parent])
 
     if not should_sudo:
         shutil.copy2(src, dst)
@@ -658,12 +656,27 @@ def main(args: List[str]) -> bool:
 
     if namespace.validate:
         targets = set()
-        for _, files in filelist.items():
+        for package, files in filelist.items():
             for status in files:
                 if status.target in targets:
                     logging.error("Duplicate file found!")
                     return False
                 targets.add(status.target)
+
+                # Simple permission check:
+                if path_startswith(status.target, HOME_DIR):
+                    expect = WHOAMI
+                else:
+                    expect = "0:0"
+
+                stat = os.stat(status.target)
+                if f"{stat.st_uid}:{stat.st_gid}" != expect:
+                    logging.error(
+                        "Maybe wrong permission: %s: %s -> %s",
+                        package,
+                        status.source,
+                        status.target,
+                    )
 
     # Update the filelist, if we found the missing source file, we make it show:
     for _, files in filelist.items():

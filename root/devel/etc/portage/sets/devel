@@ -1,5 +1,6 @@
-# Kernel:
-# Merge linux-firmware before the kernel, for buildin ucode support:
+# Kernel, the 'linux-firmware' should be emerge firstly for UKI ucode:
+#  1. 'USE=-dist-kernel emerge -av sys-kernel/linux-firmware'
+#  2. 'emerge -av sys-kernel/gentoo-linux'
 sys-kernel/linux-firmware
 sys-kernel/gentoo-kernel
 sys-kernel/installkernel
@@ -7,11 +8,14 @@ sys-kernel/installkernel
 # Core system:
 sys-apps/systemd
 sys-fs/btrfs-progs
+app-admin/sudo
 
 # Language tools:
 sys-devel/clang
 dev-python/python-lsp-server
+dev-python/mypy
 dev-util/ruff
+dev-util/bash-language-server
 
 # Portage:
 app-eselect/eselect-repository
@@ -20,12 +24,13 @@ app-portage/pycargoebuild
 app-portage/smart-live-rebuild
 dev-util/pkgdev
 
-# Shell:
-app-admin/sudo
-app-editors/helix
-app-misc/fastfetch
+# Shell & Utils:
 app-shells/fish
 app-shells/fzf
+app-editors/helix
+app-misc/fastfetch
+sys-apps/bat
+app-arch/7zip
 
 # SRE:
 sys-apps/fd

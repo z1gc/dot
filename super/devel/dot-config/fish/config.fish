@@ -1,3 +1,6 @@
+# new 7zip
+alias 7z 7zz
+
 # End-of-non-Interative
 if not status is-interactive
     exit
@@ -17,6 +20,16 @@ end
 
 # backward compat
 set -gx EDITOR "$VISUAL"
+
+# portage
+abbr -a esy "sudo emerge --sync" # sync
+abbr -a eup "sudo emerge -UDua @world" # upgrade
+abbr -a edu "sudo emerge -UNDua @world" # dist-upgrade
+abbr -a ein "sudo emerge -a" # install
+abbr -a erm "sudo emerge -Wa" # remove
+abbr -a ear "sudo emerge -ca" # autoremove
+abbr -a epr "sudo emerge -Pa" # prune
+abbr -a ese "emerge -s --regex-search-auto=y" # search
 
 # fzf
 set -g fzf_directory_opts --bind "alt-k:clear-query"

@@ -10,11 +10,11 @@
 # here, since multilingual X sessions would not work properly if LANG is over-
 # ridden in every subshell.
 
-# PATH here for all, invoke bash instead of fish for most compatibility
+# PATH here for all, invoke bash instead of fish for most compatibility:
 export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$HOME/.elan/bin:$PATH"
 export RUSTUP_DIST_SERVER="https://mirrors.ustc.edu.cn/rust-static"
 
-# make cmake export compile_commands.json by default
+# Make cmake export compile_commands.json by default:
 export CMAKE_EXPORT_COMPILE_COMMANDS=ON
 
 # https://wiki.archlinux.org/title/Fish
@@ -24,5 +24,3 @@ then
 	shopt -q login_shell && LOGIN_OPTION='--login' || LOGIN_OPTION=''
 	exec fish $LOGIN_OPTION
 fi
-
-test -s ~/.alias && . ~/.alias || true
